@@ -44,6 +44,11 @@
 
  useful links:
   http://code.google.com/p/google-sparsehash/ 
+
+  indexed lists dont have an usage bit map, this is required to
+  work with non-SHIFTED idx lists, it isn't good to associate
+  ptr=0 as the empty entry. The entry ptr should be able to be
+  any value...
 */
 
 #include <unistd.h>
@@ -1696,12 +1701,6 @@ jmlist_memory(jmlist_memory_info jml_mem)
 }
 
 jmlist_status
-jmlist_entry_count(jmlist jml,jmlist_index *count)
-{
-	return JMLIST_ERROR_UNIMPLEMENTED;
-}
-
-jmlist_status
 jmlist_is_empty(jmlist jml,bool *empty)
 {
 	return JMLIST_ERROR_UNIMPLEMENTED;
@@ -2438,4 +2437,31 @@ ijmlist_ass_remove_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_le
 	return JMLIST_ERROR_FAILURE;
 }
 #endif
+
+jmlist_status
+jmlist_entry_count(jmlist jml,jmlist_index *entry_count)
+{
+	jmlist_debug(__func__,"called with jml=%p, entry_count=%p");
+
+	if( !entry_count )
+	{
+		jmlist_debug(__func__,"invalid entry_count argument (entry_count=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( jml->flags & JMLIST_INDEXED )
+	{
+		jmlist_debug(__func__,"updating entry_count to %u",jml->idx_list.usage);
+		*entry_count = jml->idx_list.usage;
+	} else if( jml->flags & JMLIST_LINKED )
+	{
+		jmlist_debug(__func__,"updating entry_count to %u",jml->lnk_list.usage);
+		*entry_count = jml->lnk_list.usage;
+	}
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
 
