@@ -22,24 +22,18 @@ CC		:= gcc
 CFLAGS	:= -O -Wall -pedantic -std=c99 -Wuninitialized -Wsign-compare -Wno-pointer-sign -Wformat-security
 LFLAGS	:=
 LIBS	:= -lm -lz `mysql_config --cflags --libs`
-OBJS	:= wstrainer.o jmlist.o jmlist_test.o
+OBJS	:= jmlist.o jmlist_test.o
 .SUFFIXES: .o .c
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
-all: wstrainer
+all: jmlist jmlist_benchmark
 
-wstrainer: $(OBJS)
-	$(CC) $(LFLAGS) -o wstrainer $(OBJS) $(LIBS)
+jmlist: jmlist.c jmlist.h jmlist_test.c
+	$(CC) -g -DENABLE_DEBUG -DALLOW_NULL_PTR -DWITH_MAIN_ROUTINE -DWITH_ASSOC_LIST $(CFLAGS) -o jmlist_test jmlist.c jmlist.h jmlist_test.c
 
 %.o: %.c
 	$(CC) -g $(CFLAGS) -o $@ $<
-
-#status.o: ../shared/status.cpp ../shared/status.h
-#	$(CC) $(CFLAGS) -o status.o ../shared/status.cpp
-
-jmlist: jmlist.c jmlist.h jmlist_test.c
-	$(CC) -g -DALLOW_NULL_PTR -DWITH_MAIN_ROUTINE -DWITH_ASSOC_LIST $(CFLAGS) -o jmlist jmlist.c jmlist.h jmlist_test.c
 
 benchmark: jmlist_benchmark
 
@@ -47,5 +41,5 @@ jmlist_benchmark: jmlist.c jmlist.h jmlist_benchmark.c
 	$(CC) -DALLOW_NULL_PTR -DWITH_ASSOC_LIST $(CFLAGS) -o jmlist_benchmark jmlist.c jmlist_benchmark.c
 
 clean:
-	rm *.o
+	rm *.o jmlist_benchmark jmlist 2>&1 > /dev/null | echo > /dev/null
 

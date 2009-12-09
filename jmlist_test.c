@@ -114,8 +114,12 @@ int jmlist_test(int argc,char *argv[])
 	status = jmlist_insert(jml,data[1]);
 	status = jmlist_insert(jml,data[2]);
 	status = jmlist_dump(jml);
-	
+
+	jmlist_index count;
+	jmlist_entry_count(jml,&count);
+
 	status = jmlist_remove_by_ptr(jml,data[1]);
+	jmlist_entry_count(jml,&count);
 	status = jmlist_dump(jml);
 	
 	/* in this case its expected that the list is NOT fragmented due to the shifts,
