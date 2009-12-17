@@ -59,6 +59,8 @@ int jmlist_test(int argc,char *argv[])
 	 * then dump the list to output.
 	 */
 	
+	printf("  TEST #1 ------------------------------------------ \n");
+
 	jmlist jml;
 	struct _jmlist_params params = { .flags = JMLIST_INDEXED };
 	status = jmlist_create(&jml,&params);
@@ -81,6 +83,8 @@ int jmlist_test(int argc,char *argv[])
 	 * than JMLIST_IDXLIST_DEF_MALLOC_INC entries.
 	 */
 	
+	printf("  TEST #2 ------------------------------------------ \n");
+
 	params.flags = JMLIST_INDEXED;
 	params.idx_list.malloc_inc = JMLIST_IDXLIST_DEF_MALLOC_INC/2;
 	
@@ -105,6 +109,8 @@ int jmlist_test(int argc,char *argv[])
 	 * test 3: create indexed list WITH shifts, try to insert and remove some entries..
 	 */
 	
+	printf("  TEST #3 ------------------------------------------ \n");
+
 	params.flags = JMLIST_INDEXED | JMLIST_IDX_USE_SHIFT;
 	params.idx_list.malloc_inc = JMLIST_IDXLIST_DEF_MALLOC_INC/2;
 
@@ -120,7 +126,23 @@ int jmlist_test(int argc,char *argv[])
 
 	status = jmlist_remove_by_ptr(jml,data[1]);
 	jmlist_entry_count(jml,&count);
+	
 	status = jmlist_dump(jml);
+
+	status = jmlist_insert(jml,data[1]);
+	jmlist_dump(jml);
+
+	// remove middle element
+	jmlist_remove_by_index(jml,1);
+	jmlist_dump(jml);
+
+	// remove tail element
+	jmlist_remove_by_index(jml,1);
+	jmlist_dump(jml);
+
+	// remove head element
+	jmlist_remove_by_index(jml,0);
+	jmlist_dump(jml);
 	
 	/* in this case its expected that the list is NOT fragmented due to the shifts,
 	 tho, remove action is slower with worst case O(N) */
@@ -135,6 +157,8 @@ int jmlist_test(int argc,char *argv[])
 	 * should not need to seek throughout the list, being O(k) then.
 	 */
 	
+	printf("  TEST #4 ------------------------------------------ \n");
+
 	params.flags = JMLIST_INDEXED | JMLIST_IDX_USE_FRAG_FLAG;
 	params.idx_list.malloc_inc = JMLIST_IDXLIST_DEF_MALLOC_INC;
 	
@@ -158,6 +182,9 @@ int jmlist_test(int argc,char *argv[])
 	 * test 5: test the linked list basic operations, create a linked list,
 	 * insert and remove various entries.
 	 */
+
+	printf("  TEST #5 ------------------------------------------ \n");
+
 	params.flags = JMLIST_LINKED;
 	jmlist_create(&jml,&params);
 	
@@ -165,16 +192,35 @@ int jmlist_test(int argc,char *argv[])
 	jmlist_insert(jml,data[1]);
 	jmlist_insert(jml,data[2]);
 	jmlist_dump(jml);
-	
+
+	// remove middle element using ptr.	
 	jmlist_remove_by_ptr(jml,data[1]);
 	jmlist_dump(jml);
-	
+
+	jmlist_push(jml,data[1]);
+	jmlist_dump(jml);
+
+	// remove middle element
+	jmlist_remove_by_index(jml,1);
+	jmlist_dump(jml);
+
+	// remove tail element
+	jmlist_remove_by_index(jml,1);
+	jmlist_dump(jml);
+
+	// remove head element
+	jmlist_remove_by_index(jml,0);
+	jmlist_dump(jml);
+
 	jmlist_free(jml);
 	
 	jmlist_uninitialize();
+
 	/*
-	 * test 5: test the internal list, create various lists and check for memory leaks.
+	 * test 6: test the internal list, create various lists and check for memory leaks.
 	 */
+	printf("  TEST #6 ------------------------------------------ \n");
+
 	struct _jmlist_memory_info jml_mem;
 	
 	jmlist_memory(&jml_mem);	
@@ -220,7 +266,11 @@ int jmlist_test(int argc,char *argv[])
 		   jml_mem.idx_list.total, jml_mem.idx_list.used, jml_mem.lnk_list.total, jml_mem.lnk_list.used,
 		   jml_mem.total, jml_mem.used);
 
-	/* test associative list */
+	/*
+	 * TEST 7: Test the associative list type. 
+	 */
+	printf("  TEST #7 ------------------------------------------ \n");
+
 	memset(&params,0,sizeof(params));
 	params.flags = JMLIST_ASSOCIATIVE;
 	jmlist jmlass;
@@ -230,6 +280,8 @@ int jmlist_test(int argc,char *argv[])
 	int value2 = 2;
 	jmlist_key key3 = "tres";
 	int value3 = 3;
+	jmlist_key key4 = "quatro";
+	int value4 = 4;
 	int value = 0;
 
 	jmlist_create(&jmlass,&params);
@@ -237,6 +289,7 @@ int jmlist_test(int argc,char *argv[])
 	jmlist_insert_with_key(jmlass,key1,strlen(key1),(void*)value1);
 	jmlist_insert_with_key(jmlass,key2,strlen(key2),(void*)value2);
 	jmlist_insert_with_key(jmlass,key3,strlen(key3),(void*)value3);
+	jmlist_insert_with_key(jmlass,key4,strlen(key4),(void*)value4);
 
 	jmlist_dump(jmlass);
 
@@ -244,7 +297,18 @@ int jmlist_test(int argc,char *argv[])
 	printf("key %s has value %d\n",(char*)key2,value);
 
 	jmlist_remove_by_key(jmlass,key2,strlen(key2));
-	
+	jmlist_dump(jmlass);
+
+	// remove middle element
+	jmlist_remove_by_index(jmlass,1);
+	jmlist_dump(jmlass);
+
+	// remove tail element
+	jmlist_remove_by_index(jmlass,1);
+	jmlist_dump(jmlass);
+
+	// remove head element
+	jmlist_remove_by_index(jmlass,0);
 	jmlist_dump(jmlass);
 
 	jmlist_free(jmlass);

@@ -73,6 +73,7 @@ jmlist_status ijmlist_idx_free(jmlist jml);
 jmlist_status ijmlist_idx_set_capacity(jmlist jml,jmlist_index capacity);
 jmlist_status ijmlist_idx_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status ijmlist_idx_is_fragmented(jmlist jml,bool force_seeker,bool *fragmented);
+jmlist_status ijmlist_idx_remove_by_index(jmlist jml,jmlist_index index);
 
 /* linked list routines */
 jmlist_status ijmlist_lnk_get_by_index(jmlist jml,jmlist_index index,void **ptr);
@@ -83,6 +84,7 @@ jmlist_status ijmlist_lnk_pop(jmlist jml,void **ptr);
 jmlist_status ijmlist_lnk_push(jmlist jml,void *ptr);
 jmlist_status ijmlist_lnk_free(jmlist jml);
 jmlist_status ijmlist_lnk_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
+jmlist_status ijmlist_lnk_remove_by_index(jmlist jml,jmlist_index index);
 
 /* associative list routines */
 #ifdef WITH_ASSOC_LIST
@@ -96,6 +98,7 @@ jmlist_status ijmlist_ass_pop(jmlist jml,void **ptr);
 jmlist_status ijmlist_ass_push(jmlist jml,void *ptr);
 jmlist_status ijmlist_ass_free(jmlist jml);
 jmlist_status ijmlist_ass_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
+jmlist_status ijmlist_ass_remove_by_index(jmlist jml,jmlist_index index);
 #endif
 
 unsigned int jmlist_malloc_counter = 0;
@@ -377,7 +380,9 @@ ijmlist_idx_push(jmlist jml,void *ptr)
 /*
    ijmlist_lnk_push
 
-   push routine for linked lists, complexity is O(k).
+   Push routine for linked lists, complexity is O(k). Each time an entry
+   is pushed into the list, a new structure is allocated of size = linked_entry.
+   The pointer value is copied into this structure.
  */
 jmlist_status
 ijmlist_lnk_push(jmlist jml,void *ptr)
@@ -2464,4 +2469,271 @@ jmlist_entry_count(jmlist jml,jmlist_index *entry_count)
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;
 }
+
+/*
+   jmlist_remove_by_index
+
+   Removes an entry from the list using the entry index.
+*/
+jmlist_status
+jmlist_remove_by_index(jmlist jml,jmlist_index index)
+{
+	jmlist_debug(__func__,"called with jml=%p, index=%u",jml,index);
+	
+	if( jml->flags & JMLIST_INDEXED )
+	{
+		jmlist_debug(__func__,"passing control to indexed list remove_by_index routine.");
+		return ijmlist_idx_remove_by_index(jml,index);
+	} else if( jml->flags & JMLIST_LINKED )
+	{
+		jmlist_debug(__func__,"passing control to linked list remove_by_index routine.");
+		return ijmlist_lnk_remove_by_index(jml,index);
+	}
+#ifdef WITH_ASSOC_LIST
+	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	{
+		jmlist_debug(__func__,"passing control to the associative list remove_by_index routine.");
+		return ijmlist_ass_remove_by_index(jml,index);
+	}
+#endif
+	
+	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
+	jmlist_debug(__func__,"returning with failure.");
+	jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+	return JMLIST_ERROR_FAILURE;
+}
+
+jmlist_status
+ijmlist_idx_remove_by_index(jmlist jml,jmlist_index index)
+{
+	jmlist_debug(__func__,"called with jml=%p, index=%u",jml,index);
+
+	if( !jml->idx_list.usage )
+	{
+		jmlist_debug(__func__,"cannot get by index on empty list (lnk_list.usage=0)");
+		jmlist_debug(__func__,"returning with failure.");
+		jmlist_errno = JMLIST_ERROR_EMPTY_LIST;
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* shouldn't use get on a fragmented idx list */
+	if( !(jml->flags & JMLIST_IDX_USE_SHIFT) )
+	{
+		/* check for fragmentation */
+		bool fragmented = false;
+		if( jmlist_is_fragmented(jml,false,&fragmented) == JMLIST_ERROR_FAILURE )
+			return JMLIST_ERROR_FAILURE;
+
+		if( fragmented == true )
+		{
+			jmlist_debug(__func__,"cannot use this function with possible fragmented indexed lists, use of JMLIST_IDX_USE_SHIFT is required");
+			jmlist_errno = JMLIST_ERROR_FAILURE;
+			jmlist_debug(__func__,"returning with failure.");
+			return JMLIST_ERROR_FAILURE;
+		}
+	}
+
+	/* check bounds */
+	if( index >= jml->idx_list.usage )
+	{
+		jmlist_debug(__func__,"index %u is out of bounds with list jml=%p which has %u entries",index,jml,jml->idx_list.usage);
+		jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+		jmlist_debug(__func__,"returning with failure");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* remove the entry... */
+	jmlist_debug(__func__,"setting entry ptr (now %p) to NULL from list %p in index %u",jml->idx_list.plist[index],jml,index);
+
+	/* found the entry, clear it */
+	jml->idx_list.plist[index] = 0;
+	jml->idx_list.usage--;
+
+	jmlist_mem.idx_list.used -= sizeof(void*);
+	jmlist_debug(__func__,"new jml_mem.idx_list.used is %u",jmlist_mem.idx_list.used);
+
+	jmlist_debug(__func__,"entry with index %u removed from list %p, new usage is %u",index,jml,jml->idx_list.usage);
+
+	/* if shift is activated, remove and shift, otherwise just remove */
+	if( jml->flags & JMLIST_IDX_USE_SHIFT )
+	{
+		jmlist_debug(__func__,"JMLIST_IDX_USE_SHIFT activated, shifting list entries.");
+
+		for( unsigned int i = index ; i < (jml->idx_list.capacity - 1) ; i++ )
+			jml->idx_list.plist[i] = jml->idx_list.plist[i+1];
+	}
+
+	if( (jml->flags & JMLIST_IDX_USE_FRAG_FLAG) && (jml->idx_list.fragmented == false) )
+	{
+		if( (index < (jml->idx_list.capacity-1)) && (jml->idx_list.plist[index+1] != 0) )
+			jml->idx_list.fragmented = true;
+
+		/* else we'll keep it in false (not fragmented) */
+	}
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
+
+jmlist_status
+ijmlist_lnk_remove_by_index(jmlist jml,jmlist_index index)
+{
+	jmlist_debug(__func__,"called with jml=%p, index=%u",jml,index);
+
+	if( !jml->lnk_list.usage )
+	{
+		jmlist_debug(__func__,"trying to remove from empty list");
+		jmlist_debug(__func__,"returning with failure.");
+		jmlist_errno = JMLIST_ERROR_EMPTY_LIST;
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* check bounds! */
+	if( index >= jml->lnk_list.usage )
+	{
+		jmlist_debug(__func__,"index %u is out of bounds with list jml=%p which has %u entries",index,jml,jml->lnk_list.usage);
+		jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+		jmlist_debug(__func__,"returning with failure");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jmlist_debug(__func__,"seeking for index=%u in the linked list",index);
+
+	jmlist_index index_seeker = 0;	
+	linked_entry *pseeker = jml->lnk_list.phead;
+	linked_entry *pprevious = pseeker;
+	while( pseeker )
+	{
+		if( index_seeker != index )
+		{
+			pprevious = pseeker;
+			pseeker = pseeker->next;
+			index_seeker++;
+			continue;
+		}
+
+		jmlist_debug(__func__,"found entry with index=%u, pseeker=%p pseeker->next=%p",index,pseeker,pseeker->next);
+
+		if( pprevious == pseeker )
+		{
+			/* we're at HEAD */
+			jmlist_debug(__func__,"entry is from head, lets pop it instead...");
+			void *junk;
+			return ijmlist_lnk_pop(jml,&junk);
+		}
+
+		jmlist_debug(__func__,"unlinking entry with index=%u",index);
+		pprevious->next = pseeker->next;
+		jml->lnk_list.usage--;
+
+		jmlist_debug(__func__,"unlinked successfuly, new usage is %u, freeing entry structure",jml->lnk_list.usage);
+		free(pseeker);
+
+		jmlist_mem.lnk_list.total -= sizeof(struct _linked_entry);
+		jmlist_mem.lnk_list.used -= sizeof(struct _linked_entry);
+		jmlist_debug(__func__,"new jml_mem.lnk_list.total is %u",jmlist_mem.lnk_list.total);
+		jmlist_debug(__func__,"new jml_mem.lnk_list.used is %u",jmlist_mem.lnk_list.used);
+
+		jmlist_debug(__func__,"returning with success.");
+		return JMLIST_ERROR_SUCCESS;
+	}
+
+	/* this shouldn't happen since the bounds were checked before! damaged list?? */
+	jmlist_debug(__func__,"unexpected error! couldn't find entry with index=%u in list jml=%p",index,jml);
+	jmlist_errno = JMLIST_ERROR_ENTRY_NOT_FOUND;
+	jmlist_debug(__func__,"returning with failure.");
+	return JMLIST_ERROR_FAILURE;
+}
+
+#ifdef WITH_ASSOC_LIST
+jmlist_status
+ijmlist_ass_remove_by_index(jmlist jml,jmlist_index index)
+{
+	jmlist_debug(__func__,"called with jml=%p, index=%u",jml,index);
+	
+	if( !jml->ass_list.usage )
+	{
+		jmlist_debug(__func__,"cannot remove on empty list");
+		jmlist_debug(__func__,"returning with failure.");
+		jmlist_errno = JMLIST_ERROR_EMPTY_LIST;
+		return JMLIST_ERROR_FAILURE;
+	}
+	
+	/* check bounds! */
+	if( index >= jml->ass_list.usage )
+	{
+		jmlist_debug(__func__,"index %u is out of bounds with list jml=%p which has %u entries",index,jml,jml->ass_list.usage);
+		jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+		jmlist_debug(__func__,"returning with failure");
+		return JMLIST_ERROR_FAILURE;
+	}
+	
+	jmlist_debug(__func__,"seeking associative list for indexed item %u",index);
+	
+	jmlist_index index_seeker = 0;
+	assoc_entry *pseeker = jml->ass_list.phead;
+	assoc_entry *pprevious = pseeker;
+	while( pseeker )
+	{
+		if( index_seeker != index )
+		{
+			pprevious = pseeker;
+			pseeker = pseeker->next;
+			index_seeker++;
+			continue;
+		}
+		
+		jmlist_debug(__func__,"found entry with index=%u, pseeker=%p pseeker->next=%p",index,pseeker,pseeker->next);
+		
+		if( pprevious == pseeker )
+		{
+			jmlist_debug(__func__,"entry is from head, lets pop it instead...");
+			
+			assoc_entry *pentry;
+			pentry = jml->ass_list.phead;
+			
+			jmlist_debug(__func__,"entry poped from head is jml=%p",pentry);
+			
+			jml->ass_list.phead = pentry->next;
+			
+			jmlist_debug(__func__,"new list head is phead=%p",pentry->next);
+			jmlist_debug(__func__,"freeing pentry=%p structure from memory",pentry);
+			
+			free(pentry);
+			
+			jml->ass_list.usage--;
+			jmlist_debug(__func__,"decreased usage to %u",jml->ass_list.usage);
+			
+			jmlist_mem.ass_list.total -= sizeof(struct _assoc_entry);
+			jmlist_mem.ass_list.used -= sizeof(struct _assoc_entry);
+			jmlist_debug(__func__,"new jml_mem.ass_list.total is %u",jmlist_mem.ass_list.total);
+			jmlist_debug(__func__,"new jml_mem.ass_list.used is %u",jmlist_mem.ass_list.used);
+			
+			jmlist_debug(__func__,"returning with success.");
+			return JMLIST_ERROR_SUCCESS;
+		}
+		
+		/* we're not at HEAD, remove entry normally... */
+		jmlist_debug(__func__,"unlinking entry");
+		pprevious->next = pseeker->next;
+		jml->ass_list.usage--;
+		
+		jmlist_mem.ass_list.total -= sizeof(struct _assoc_entry);
+		jmlist_mem.ass_list.used -= sizeof(struct _assoc_entry);
+		jmlist_debug(__func__,"new jml_mem.ass_list.total is %u",jmlist_mem.ass_list.total);
+		jmlist_debug(__func__,"new jml_mem.ass_list.used is %u",jmlist_mem.ass_list.used);
+		
+		jmlist_debug(__func__,"unlinked successfuly, new usage is %u, freeing entry",jml->ass_list.usage);
+		free(pseeker);
+		
+		jmlist_debug(__func__,"returning with success.");
+		return JMLIST_ERROR_SUCCESS;
+	}
+	
+	jmlist_debug(__func__,"couldn't find entry with index=%u in the list jml=%p",index,jml);
+	jmlist_errno = JMLIST_ERROR_ENTRY_NOT_FOUND;
+	jmlist_debug(__func__,"returning with failure.");
+	return JMLIST_ERROR_FAILURE;
+}
+#endif
 

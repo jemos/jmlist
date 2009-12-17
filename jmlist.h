@@ -203,6 +203,7 @@ jmlist_status jmlist_create(jmlist *new_jml,jmlist_params params);
 jmlist_status jmlist_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status jmlist_get_by_index(jmlist jml,jmlist_index index,void **ptr);
 jmlist_status jmlist_remove_by_ptr(jmlist jml,void *ptr);
+jmlist_status jmlist_remove_by_index(jmlist jml,jmlist_index index);
 jmlist_status jmlist_free(jmlist jml);
 jmlist_status jmlist_push(jmlist jml,void *ptr);
 jmlist_status jmlist_pop(jmlist jml,void **ptr);
@@ -215,6 +216,7 @@ jmlist_status jmlist_memory(jmlist_memory_info jml_mem);
 jmlist_status jmlist_free_all(void);
 int jmlist_parse(jmlist jml,JMLISTPARSERCALLBACK callback,void *param);
 jmlist_status jmlist_entry_count(jmlist jml,jmlist_index *entry_count);
+jmlist_status jmlist_remove_by_index(jmlist jml,jmlist_index index);
 
 #ifdef WITH_ASSOC_LIST
 jmlist_status jmlist_insert_with_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *ptr);
