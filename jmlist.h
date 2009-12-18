@@ -116,9 +116,9 @@ typedef struct _linked_entry
 		void *ptr;
 } linked_entry;
 
-#ifdef WITH_ASSOC_LIST
 typedef void* jmlist_key;
 typedef uint32_t jmlist_key_length;
+#ifdef WITH_ASSOC_LIST
 
 typedef struct _assoc_entry
 {
