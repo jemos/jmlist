@@ -74,6 +74,7 @@ jmlist_status ijmlist_idx_set_capacity(jmlist jml,jmlist_index capacity);
 jmlist_status ijmlist_idx_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status ijmlist_idx_is_fragmented(jmlist jml,bool force_seeker,bool *fragmented);
 jmlist_status ijmlist_idx_remove_by_index(jmlist jml,jmlist_index index);
+jmlist_status ijmlist_idx_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
 
 /* linked list routines */
 jmlist_status ijmlist_lnk_get_by_index(jmlist jml,jmlist_index index,void **ptr);
@@ -85,6 +86,7 @@ jmlist_status ijmlist_lnk_push(jmlist jml,void *ptr);
 jmlist_status ijmlist_lnk_free(jmlist jml);
 jmlist_status ijmlist_lnk_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status ijmlist_lnk_remove_by_index(jmlist jml,jmlist_index index);
+jmlist_status ijmlist_lnk_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
 
 /* associative list routines */
 #ifdef WITH_ASSOC_LIST
@@ -99,6 +101,7 @@ jmlist_status ijmlist_ass_push(jmlist jml,void *ptr);
 jmlist_status ijmlist_ass_free(jmlist jml);
 jmlist_status ijmlist_ass_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status ijmlist_ass_remove_by_index(jmlist jml,jmlist_index index);
+jmlist_status ijmlist_ass_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
 #endif
 
 unsigned int jmlist_malloc_counter = 0;
@@ -587,7 +590,7 @@ ijmlist_lnk_dump(jmlist jml)
 	jmlist_index index = 0;
 	while( pseeker )
 	{
-		fprintf(jmlist_cfg.fdump,"  %08X: pentry=%p pentry->next=%p \n",index,(void*)pseeker,(void*)pseeker->next);
+		fprintf(jmlist_cfg.fdump,"  %08X: pentry=%p pentry->next=%p ptr=%p\n",index,(void*)pseeker,(void*)pseeker->next,pseeker->ptr);
 		pseeker = pseeker->next;
 		index++;
 	}
@@ -2726,6 +2729,207 @@ ijmlist_ass_remove_by_index(jmlist jml,jmlist_index index)
 		jmlist_debug(__func__,"unlinked successfuly, new usage is %u, freeing entry",jml->ass_list.usage);
 		free(pseeker);
 		
+		jmlist_debug(__func__,"returning with success.");
+		return JMLIST_ERROR_SUCCESS;
+	}
+	
+	jmlist_debug(__func__,"couldn't find entry with index=%u in the list jml=%p",index,jml);
+	jmlist_errno = JMLIST_ERROR_ENTRY_NOT_FOUND;
+	jmlist_debug(__func__,"returning with failure.");
+	return JMLIST_ERROR_FAILURE;
+}
+#endif
+
+/*
+   jmlist_replace_by_index
+
+   In indexed lists, entry is of index=index is cleared and replaced with new_ptr, this is
+   done ignoring the indexed list flags of shifting and fragmented. In the case of linked
+   lists the next pointer of the previous entry is replaced by new_ptr and new_ptr->next
+   is set to old previous->next. Associative lists have equal behaviour of linked ones.
+
+   In all the 3 cases, no memory counters are changed.
+
+   The difference from replace and remove+insert is that the new_ptr will maintain the
+   index specified by the argument in all the 3 types of lists. Also replace is faster
+   because it doesn't do operations associated with insert or remove.
+*/
+jmlist_status
+jmlist_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p, index=%u, new_ptr=%p",jml,index,new_ptr);
+	
+	if( jml->flags & JMLIST_INDEXED )
+	{
+		jmlist_debug(__func__,"passing control to indexed list replace_by_index routine.");
+		return ijmlist_idx_replace_by_index(jml,index,new_ptr);
+	} else if( jml->flags & JMLIST_LINKED )
+	{
+		jmlist_debug(__func__,"passing control to linked list replace_by_index routine.");
+		return ijmlist_lnk_replace_by_index(jml,index,new_ptr);
+	}
+#ifdef WITH_ASSOC_LIST
+	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	{
+		jmlist_debug(__func__,"passing control to the associative list replace_by_index routine.");
+		return ijmlist_ass_replace_by_index(jml,index,new_ptr);
+	}
+#endif
+	
+	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
+	jmlist_debug(__func__,"returning with failure.");
+	jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+	return JMLIST_ERROR_FAILURE;
+}
+
+jmlist_status
+ijmlist_idx_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p, index=%u",jml,index);
+
+	if( !jml->idx_list.usage )
+	{
+		jmlist_debug(__func__,"cannot replace by index on empty list (lnk_list.usage=0)");
+		jmlist_debug(__func__,"returning with failure.");
+		jmlist_errno = JMLIST_ERROR_EMPTY_LIST;
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* shouldn't use get on a fragmented idx list */
+	if( !(jml->flags & JMLIST_IDX_USE_SHIFT) )
+	{
+		/* check for fragmentation */
+		bool fragmented = false;
+		if( jmlist_is_fragmented(jml,false,&fragmented) == JMLIST_ERROR_FAILURE )
+			return JMLIST_ERROR_FAILURE;
+
+		if( fragmented == true )
+		{
+			jmlist_debug(__func__,"cannot use this function with possible fragmented indexed lists, use of JMLIST_IDX_USE_SHIFT is required");
+			jmlist_errno = JMLIST_ERROR_FAILURE;
+			jmlist_debug(__func__,"returning with failure.");
+			return JMLIST_ERROR_FAILURE;
+		}
+	}
+
+	/* check bounds */
+	if( index >= jml->idx_list.usage )
+	{
+		jmlist_debug(__func__,"index %u is out of bounds with list jml=%p which has %u entries",index,jml,jml->idx_list.usage);
+		jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+		jmlist_debug(__func__,"returning with failure");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* remove the entry... */
+	jmlist_debug(__func__,"setting entry ptr (now %p) to new_ptr=%p from list %p in index %u",jml->idx_list.plist[index],new_ptr,jml,index);
+
+	/* found the entry, replace it */
+	jml->idx_list.plist[index] = new_ptr;
+
+	jmlist_debug(__func__,"entry with index %u replaced from list %p successfully, new entry has ptr=%p",index,jml,jml->idx_list.plist[index]);
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
+
+jmlist_status
+ijmlist_lnk_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p, index=%u",jml,index);
+
+	if( !jml->lnk_list.usage )
+	{
+		jmlist_debug(__func__,"trying to replace from empty list");
+		jmlist_debug(__func__,"returning with failure.");
+		jmlist_errno = JMLIST_ERROR_EMPTY_LIST;
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* check bounds! */
+	if( index >= jml->lnk_list.usage )
+	{
+		jmlist_debug(__func__,"index %u is out of bounds with list jml=%p which has %u entries",index,jml,jml->lnk_list.usage);
+		jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+		jmlist_debug(__func__,"returning with failure");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jmlist_debug(__func__,"seeking for index=%u in the linked list",index);
+
+	jmlist_index index_seeker = 0;	
+	linked_entry *pseeker = jml->lnk_list.phead;
+	linked_entry *pprevious = pseeker;
+	while( pseeker )
+	{
+		if( index_seeker != index )
+		{
+			pprevious = pseeker;
+			pseeker = pseeker->next;
+			index_seeker++;
+			continue;
+		}
+
+		jmlist_debug(__func__,"found entry with index=%u, pseeker=%p pseeker->next=%p",index,pseeker,pseeker->next);
+
+		jmlist_debug(__func__,"replacing old ptr=%p with new_ptr=%p",pseeker->ptr,new_ptr);
+		pseeker->ptr = new_ptr;
+		jmlist_debug(__func__,"new entry ptr of index=%u is ptr=%p",index,pseeker->ptr);
+
+		jmlist_debug(__func__,"returning with success.");
+		return JMLIST_ERROR_SUCCESS;
+	}
+
+	/* this shouldn't happen since the bounds were checked before! damaged list?? */
+	jmlist_debug(__func__,"unexpected error! couldn't find entry with index=%u in list jml=%p",index,jml);
+	jmlist_errno = JMLIST_ERROR_ENTRY_NOT_FOUND;
+	jmlist_debug(__func__,"returning with failure.");
+	return JMLIST_ERROR_FAILURE;
+}
+
+#ifdef WITH_ASSOC_LIST
+jmlist_status
+ijmlist_ass_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p, index=%u",jml,index);
+	
+	if( !jml->ass_list.usage )
+	{
+		jmlist_debug(__func__,"cannot remove on empty list");
+		jmlist_debug(__func__,"returning with failure.");
+		jmlist_errno = JMLIST_ERROR_EMPTY_LIST;
+		return JMLIST_ERROR_FAILURE;
+	}
+	
+	/* check bounds! */
+	if( index >= jml->ass_list.usage )
+	{
+		jmlist_debug(__func__,"index %u is out of bounds with list jml=%p which has %u entries",index,jml,jml->ass_list.usage);
+		jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+		jmlist_debug(__func__,"returning with failure");
+		return JMLIST_ERROR_FAILURE;
+	}
+	
+	jmlist_debug(__func__,"seeking associative list for indexed item %u",index);
+	
+	jmlist_index index_seeker = 0;
+	assoc_entry *pseeker = jml->ass_list.phead;
+	assoc_entry *pprevious = pseeker;
+	while( pseeker )
+	{
+		if( index_seeker != index )
+		{
+			pprevious = pseeker;
+			pseeker = pseeker->next;
+			index_seeker++;
+			continue;
+		}
+		
+		jmlist_debug(__func__,"found entry with index=%u, pseeker=%p pseeker->next=%p",index,pseeker,pseeker->next);
+
+		jmlist_debug(__func__,"replacing old ptr=%p with new_ptr=%p",pseeker->ptr,new_ptr);
+		pseeker->ptr = new_ptr;
+		jmlist_debug(__func__,"new entry ptr of index=%u is ptr=%p",index,pseeker->ptr);
+
 		jmlist_debug(__func__,"returning with success.");
 		return JMLIST_ERROR_SUCCESS;
 	}

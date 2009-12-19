@@ -313,6 +313,65 @@ int jmlist_test(int argc,char *argv[])
 
 	jmlist_free(jmlass);
 
+	/*
+	 * TEST 8: Test replace operation on all list types.
+	 */
+	printf("  TEST #8 ------------------------------------------ \n");
+	
+	params.flags = JMLIST_INDEXED;
+	jmlist_create(&jml,&params);
+
+	jmlist_insert(jml,data[0]);
+	jmlist_insert(jml,data[1]);
+	jmlist_insert(jml,data[2]);
+
+	jmlist_dump(jml);
+
+	jmlist_replace_by_index(jml,1,"REPLACED 1!");
+	jmlist_dump(jml);
+	jmlist_replace_by_index(jml,0,"REPLACED 0!");
+	jmlist_dump(jml);
+	jmlist_replace_by_index(jml,2,"REPLACED 2!");
+	jmlist_dump(jml);
+
+	jmlist_free(jml);
+
+	params.flags = JMLIST_LINKED;
+	jmlist_create(&jml,&params);
+
+	jmlist_insert(jml,data[0]);
+	jmlist_insert(jml,data[1]);
+	jmlist_insert(jml,data[2]);
+
+	jmlist_dump(jml);
+
+	jmlist_replace_by_index(jml,1,"REPLACED 1!");
+	jmlist_dump(jml);
+	jmlist_replace_by_index(jml,0,"REPLACED 0!");
+	jmlist_dump(jml);
+	jmlist_replace_by_index(jml,2,"REPLACED 2!");
+	jmlist_dump(jml);
+
+	jmlist_free(jml);
+
+	params.flags = JMLIST_ASSOCIATIVE;
+	jmlist_create(&jml,&params);
+
+	jmlist_insert_with_key(jml,"key1",4,data[0]);
+	jmlist_insert_with_key(jml,"key2",4,data[1]);
+	jmlist_insert_with_key(jml,"key3",4,data[2]);
+
+	jmlist_dump(jml);
+
+	jmlist_replace_by_index(jml,1,"REPLACED 1!");
+	jmlist_dump(jml);
+	jmlist_replace_by_index(jml,0,"REPLACED 0!");
+	jmlist_dump(jml);
+	jmlist_replace_by_index(jml,2,"REPLACED 2!");
+	jmlist_dump(jml);
+
+	jmlist_free(jml);
+
 	/* END OF TESTS */
 	status = jmlist_uninitialize();
 	jmlist_test_print_status("jmlist_uninitialize",status);

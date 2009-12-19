@@ -217,6 +217,7 @@ jmlist_status jmlist_free_all(void);
 int jmlist_parse(jmlist jml,JMLISTPARSERCALLBACK callback,void *param);
 jmlist_status jmlist_entry_count(jmlist jml,jmlist_index *entry_count);
 jmlist_status jmlist_remove_by_index(jmlist jml,jmlist_index index);
+jmlist_status jmlist_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
 
 #ifdef WITH_ASSOC_LIST
 jmlist_status jmlist_insert_with_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *ptr);
