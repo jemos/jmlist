@@ -1355,15 +1355,6 @@ ijmlist_idx_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 		return JMLIST_ERROR_FAILURE;
 	}
 	
-	/* check if the list is empty */
-	if( jml->idx_list.usage == 0 )
-	{
-		jmlist_debug(__func__,"cannot use this function with an empty list");
-		jmlist_errno = JMLIST_ERROR_EMPTY_LIST;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-	
 	jmlist_index i;
 	/* TODO: optimize this loop, if JMLIST_IDX_USE_SHIFT is on, we can look only within .usage entries */
 	for( i = 0 ; i < jml->idx_list.capacity ; i++ )
@@ -1413,15 +1404,6 @@ ijmlist_lnk_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 		return JMLIST_ERROR_FAILURE;
 	}
 	
-	/* trying to pop from empty list? */
-	if( !jml->lnk_list.usage )
-	{
-		jmlist_debug(__func__,"cannot use this function with an empty list");
-		jmlist_errno = JMLIST_ERROR_EMPTY_LIST;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-	
 	jmlist_debug(__func__,"seeking ptr=%p in the linked list",ptr);
 	
 	linked_entry *pseeker = jml->lnk_list.phead;
@@ -1443,9 +1425,8 @@ ijmlist_lnk_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 	
 	*result = jmlist_entry_not_found;
 	jmlist_debug(__func__,"couldn't find entry with ptr=%p in list jml=%p",ptr,jml);
-	jmlist_errno = JMLIST_ERROR_ENTRY_NOT_FOUND;
-	jmlist_debug(__func__,"returning with failure.");
-	return JMLIST_ERROR_FAILURE;
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
 }
 
 /*
