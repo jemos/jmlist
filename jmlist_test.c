@@ -275,14 +275,14 @@ int jmlist_test(int argc,char *argv[])
 	params.flags = JMLIST_ASSOCIATIVE;
 	jmlist jmlass;
 	jmlist_key key1 = "um";
-	int value1 = 1;
+	void *value1 = (void*)1;
 	jmlist_key key2 = "dois";
-	int value2 = 2;
+	void *value2 = (void*)2;
 	jmlist_key key3 = "tres";
-	int value3 = 3;
+	void *value3 = (void*)3;
 	jmlist_key key4 = "quatro";
-	int value4 = 4;
-	int value = 0;
+	void *value4 = (void*)4;
+	void *value = 0;
 
 	jmlist_create(&jmlass,&params);
 
@@ -294,7 +294,7 @@ int jmlist_test(int argc,char *argv[])
 	jmlist_dump(jmlass);
 
 	jmlist_get_by_key(jmlass,key2,strlen(key2),(void*)&value);
-	printf("key %s has value %d\n",(char*)key2,value);
+	printf("key %s has value %p\n",(char*)key2,value);
 
 	jmlist_remove_by_key(jmlass,key2,strlen(key2));
 	jmlist_dump(jmlass);
@@ -371,6 +371,73 @@ int jmlist_test(int argc,char *argv[])
 	jmlist_dump(jml);
 
 	jmlist_free(jml);
+
+	/*
+	 * TEST 9: Test jmlist seeking functions.
+	 */
+	printf("  TEST #9 ------------------------------------------ \n");
+
+	jmlist_seek_handle shandle;
+	
+	params.flags = JMLIST_INDEXED;
+	jmlist_create(&jml,&params);
+	jmlist_insert(jml,data[0]);
+	jmlist_insert(jml,data[1]);
+	jmlist_insert(jml,data[2]);
+	jmlist_dump(jml);
+	jmlist_seek_start(jml,&shandle);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	jmlist_dump(jml);
+	status = jmlist_seek_end(jml,&shandle);
+	jmlist_test_print_status("jmlist_seek_end",status);
+	jmlist_free(jml);
+
+	params.flags = JMLIST_LINKED;
+	jmlist_create(&jml,&params);
+	jmlist_insert(jml,data[0]);
+	jmlist_insert(jml,data[1]);
+	jmlist_insert(jml,data[2]);
+	jmlist_dump(jml);
+	jmlist_seek_start(jml,&shandle);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	jmlist_dump(jml);
+	status = jmlist_seek_end(jml,&shandle);
+	jmlist_test_print_status("jmlist_seek_end",status);
+	jmlist_free(jml);
+
+	params.flags = JMLIST_INDEXED;
+	jmlist_create(&jml,&params);
+	jmlist_insert(jml,data[0]);
+	jmlist_insert(jml,data[1]);
+	jmlist_insert(jml,data[2]);
+	jmlist_remove_by_index(jml,1);
+	jmlist_dump(jml);
+	jmlist_seek_start(jml,&shandle);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	status = jmlist_seek_next(jml,&shandle,&ptr);
+	jmlist_test_print_status("jmlist_seek_next",status);
+	jmlist_dump(jml);
+	status = jmlist_seek_end(jml,&shandle);
+	jmlist_test_print_status("jmlist_seek_end",status);
+	jmlist_free(jml);
+
 
 	/* END OF TESTS */
 	status = jmlist_uninitialize();

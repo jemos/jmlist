@@ -25,6 +25,7 @@
 #include <stdio.h>
 
 #define JMLIST_IDXLIST_DEF_MALLOC_INC 64
+#define JMLIST_EMPTY_PTR (void*)(-1)
 
 typedef uint32_t jmlist_index;
 typedef int (*JMLISTPARSERCALLBACK) (void *ptr,void *param);
@@ -93,6 +94,8 @@ typedef enum _jmlist_lookup_result
 	jmlist_entry_found
 } jmlist_lookup_result;
 
+typedef int (*JMLISTFINDCALLBACK) (void *ptr,void *param,jmlist_lookup_result *result);
+
 typedef struct _jmlist_params
 {
 	struct {
@@ -132,6 +135,7 @@ typedef struct _assoc_entry
 typedef struct _jmlist
 {
 	jmlist_flags flags;
+	bool seeking;
 	struct {
 		void **plist;
 		jmlist_index capacity;
@@ -177,6 +181,14 @@ typedef struct _jmlist_memory_info
 	uint32_t used;
 } *jmlist_memory_info;
 
+typedef union _jmlist_seek_handle {
+	jmlist_index next_idx;
+	linked_entry *next_lnk;
+#ifdef WITH_ASSOC_LIST
+	assoc_entry *next_ass;
+#endif
+} jmlist_seek_handle;
+
 #define DEBUGSTART if(jmlist_cfg.flags & JMLIST_FLAG_DEBUG) {
 #define DEBUGEND }
 
@@ -214,7 +226,11 @@ jmlist_status jmlist_status_to_string(jmlist_status status,char *output,size_t o
 jmlist_status jmlist_is_fragmented(jmlist jml,bool force_seeker,bool *fragmented);
 jmlist_status jmlist_memory(jmlist_memory_info jml_mem);
 jmlist_status jmlist_free_all(void);
-int jmlist_parse(jmlist jml,JMLISTPARSERCALLBACK callback,void *param);
+jmlist_status jmlist_parse(jmlist jml,JMLISTPARSERCALLBACK callback,void *param);
+jmlist_status jmlist_find(jmlist jml,JMLISTFINDCALLBACK callback,void *param,jmlist_lookup_result *result,void **ptr);
+jmlist_status jmlist_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr);
+jmlist_status jmlist_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr);
+jmlist_status jmlist_seek_end(jmlist jml,jmlist_seek_handle *handle_ptr);
 jmlist_status jmlist_entry_count(jmlist jml,jmlist_index *entry_count);
 jmlist_status jmlist_remove_by_index(jmlist jml,jmlist_index index);
 jmlist_status jmlist_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
@@ -227,7 +243,6 @@ jmlist_status jmlist_remove_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_leng
 
 /* TODO
 
- jmlist_status jmlist_remove_by_index(jml,jmlist_index index);
  jmlist_status jmlist_insert_at_position(jmlist jml,void *ptr,jmlist_position pos);
   where pos = JMLIST_HEAD, JMLIST_TAIL, JMLIST_FREE_HEAD, JMLIST_FREE_TAIL
 

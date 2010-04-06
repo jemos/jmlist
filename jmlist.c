@@ -75,6 +75,8 @@ jmlist_status ijmlist_idx_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *
 jmlist_status ijmlist_idx_is_fragmented(jmlist jml,bool force_seeker,bool *fragmented);
 jmlist_status ijmlist_idx_remove_by_index(jmlist jml,jmlist_index index);
 jmlist_status ijmlist_idx_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
+jmlist_status ijmlist_idx_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr);
+jmlist_status ijmlist_idx_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr);
 
 /* linked list routines */
 jmlist_status ijmlist_lnk_get_by_index(jmlist jml,jmlist_index index,void **ptr);
@@ -87,6 +89,8 @@ jmlist_status ijmlist_lnk_free(jmlist jml);
 jmlist_status ijmlist_lnk_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status ijmlist_lnk_remove_by_index(jmlist jml,jmlist_index index);
 jmlist_status ijmlist_lnk_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
+jmlist_status ijmlist_lnk_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr);
+jmlist_status ijmlist_lnk_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr);
 
 /* associative list routines */
 #ifdef WITH_ASSOC_LIST
@@ -102,6 +106,8 @@ jmlist_status ijmlist_ass_free(jmlist jml);
 jmlist_status ijmlist_ass_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status ijmlist_ass_remove_by_index(jmlist jml,jmlist_index index);
 jmlist_status ijmlist_ass_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
+jmlist_status ijmlist_ass_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr);
+jmlist_status ijmlist_ass_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr);
 #endif
 
 unsigned int jmlist_malloc_counter = 0;
@@ -262,10 +268,13 @@ ijmlist_idx_set_capacity(jmlist jml,jmlist_index capacity)
 	jmlist_debug(__func__,"new jml_mem.idx_list.total is %u",jmlist_mem.idx_list.total);
 	jmlist_debug(__func__,"new jml_mem.idx_list.used is %u",jmlist_mem.idx_list.used);
 
-	jmlist_debug(__func__,"memset 0 from %p of %u bytes long",
+	jmlist_debug(__func__,"memset %u from %p of %u bytes long",JMLIST_EMPTY_PTR,
 		jml->idx_list.plist+jml->idx_list.capacity,sizeof(void*)*(capacity-jml->idx_list.capacity));
 
-	memset(jml->idx_list.plist+jml->idx_list.capacity,0,sizeof(void*)*(capacity-jml->idx_list.capacity));
+	void **ptr_seeker = jml->idx_list.plist+jml->idx_list.capacity;
+	for( jmlist_index i = 0 ; i < (capacity-jml->idx_list.capacity) ; i++,ptr_seeker++ ) {
+			*ptr_seeker = JMLIST_EMPTY_PTR;
+	}
 	jml->idx_list.capacity = capacity;
 	jml->idx_list.usage = 0;
 		
@@ -344,16 +353,6 @@ ijmlist_idx_push(jmlist jml,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p and ptr=%p",jml,ptr);
 
-#ifndef ALLOW_NULL_PTR	
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	/* if the list is full or zero capacity, we need to increment its size */
 	if( !jml->idx_list.capacity || (jml->idx_list.capacity == jml->idx_list.usage) )
 	{
@@ -392,15 +391,6 @@ ijmlist_lnk_push(jmlist jml,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p",jml,ptr);
 
-#ifndef ALLOW_NULL_PTR
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	jmlist_debug(__func__,"allocating linked entry");
 	linked_entry *pentry = (linked_entry*)malloc(sizeof(linked_entry));
 	if( !pentry ) 
@@ -487,7 +477,7 @@ ijmlist_idx_pop(jmlist jml,void **ptr)
 		jml->idx_list.plist[i] = jml->idx_list.plist[i+1];
 	}
 	/* clear last entry */
-	jml->idx_list.plist[i] = 0;
+	jml->idx_list.plist[i] = JMLIST_EMPTY_PTR;
 	jml->idx_list.usage--;
 	
 	jmlist_mem.idx_list.used -= sizeof(void*);
@@ -607,17 +597,6 @@ ijmlist_idx_remove_by_ptr(jmlist jml,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p and ptr=%p",jml,ptr);
 	
-#ifndef ALLOW_NULL_PTR
-	/* check ptr argument */
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	/* check if the list is empty */
 	if( jml->idx_list.usage == 0 )
 	{
@@ -637,7 +616,7 @@ ijmlist_idx_remove_by_ptr(jmlist jml,void *ptr)
 		jmlist_debug(__func__,"found entry (ptr=%p) from list %p in index %u",ptr,jml,i);
 		
 		/* found the entry, clear it */
-		jml->idx_list.plist[i] = 0;
+		jml->idx_list.plist[i] = JMLIST_EMPTY_PTR;
 		jml->idx_list.usage--;
 		
 		jmlist_mem.idx_list.used -= sizeof(void*);
@@ -656,7 +635,7 @@ ijmlist_idx_remove_by_ptr(jmlist jml,void *ptr)
 		
 		if( (jml->flags & JMLIST_IDX_USE_FRAG_FLAG) && (jml->idx_list.fragmented == false) )
 		{
-			if( (i < (jml->idx_list.capacity-1)) && (jml->idx_list.plist[i+1] != 0) )
+			if( (i < (jml->idx_list.capacity-1)) && (jml->idx_list.plist[i+1] != JMLIST_EMPTY_PTR) )
 				jml->idx_list.fragmented = true;
 			
 			/* else we'll keep it in false (not fragmented) */
@@ -680,16 +659,6 @@ ijmlist_lnk_remove_by_ptr(jmlist jml,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p",jml,ptr);
 
-#ifndef ALLOW_NULL_PTR
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr pointer specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	/* trying to pop from empty list? */
 	if( !jml->lnk_list.usage )
 	{
@@ -753,17 +722,6 @@ ijmlist_idx_insert(jmlist jml,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p and ptr=%p",jml,ptr);
 	
-#ifndef ALLOW_NULL_PTR
-	/* verify ptr */
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-
 	jmlist_debug(__func__,"list (jml=%p), capacity %u, usage %u",jml,jml->idx_list.capacity,jml->idx_list.usage);
 	/* check if list is empty or full */
 	if( (jml->idx_list.capacity == 0) || (jml->idx_list.capacity == jml->idx_list.usage) )
@@ -779,7 +737,7 @@ ijmlist_idx_insert(jmlist jml,void *ptr)
 	
 	/* lookup an empty entry and insert there */
 	jmlist_index i = 0;
-	while( jml->idx_list.plist[i] ) i++;
+	while( jml->idx_list.plist[i] != JMLIST_EMPTY_PTR ) i++;
 	jmlist_debug(__func__,"found free entry in %u position (plist[%u]=%p)",i,i,jml->idx_list.plist[i]);
 	jml->idx_list.plist[i] = ptr;
 	jml->idx_list.usage++;
@@ -797,17 +755,6 @@ jmlist_status
 ijmlist_lnk_insert(jmlist jml,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p and ptr=%p",jml,ptr);
-	
-#ifndef ALLOW_NULL_PTR
-	/* verify ptr */
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
 	
 	if( jml->flags & JMLIST_LNK_INSERT_AT_TAIL )
 	{
@@ -897,6 +844,7 @@ jmlist_create(jmlist *new_jml,jmlist_params params)
 	
 	memset(*new_jml,0,sizeof(struct _jmlist));
 	(*new_jml)->flags = params->flags;
+	(*new_jml)->seeking = false;
 	memcpy((*new_jml)->tag,params->tag,sizeof((*new_jml)->tag));
 	
 	jmlist_debug(__func__,"initialized new jmlist successfuly (new_jml=%p)",new_jml);
@@ -962,17 +910,6 @@ jmlist_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p, result=%p",jml,ptr,result);
 
-#ifndef ALLOW_NULL_PTR	
-	/* check ptr argument */
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	if( !result )
 	{
 		jmlist_debug(__func__,"invalid result pointer specified (result=0)");
@@ -1263,15 +1200,6 @@ jmlist_push(jmlist jml,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p",jml,ptr);
 
-#ifndef ALLOW_NULL_PTR	
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	if( jml->flags & JMLIST_INDEXED )
 	{
 		jmlist_debug(__func__,"passing control to indexed list push routine.");
@@ -1336,17 +1264,6 @@ ijmlist_idx_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 {
 	jmlist_debug(__func__,"called with jml=%p and ptr=%p",jml,ptr);
 	
-#ifndef ALLOW_NULL_PTR
-	/* check ptr argument */
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	if( !result )
 	{
 		jmlist_debug(__func__,"invalid result pointer specified (result=0)");
@@ -1386,16 +1303,6 @@ ijmlist_lnk_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p",jml,ptr);
 
-#ifndef ALLOW_NULL_PTR	
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_debug(__func__,"returning with failure.");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	if( !result )
 	{
 		jmlist_debug(__func__,"invalid result pointer specified (result=0)");
@@ -1505,15 +1412,6 @@ jmlist_insert(jmlist jml,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p",jml,ptr);
 
-#ifndef ALLOW_NULL_PTR
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	if( jml->flags & JMLIST_INDEXED )
 	{
 		jmlist_debug(__func__,"passing control to indexed list insert routine.");
@@ -1540,15 +1438,6 @@ jmlist_status
 jmlist_insert_with_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p",jml,ptr);
-
-#ifndef ALLOW_NULL_PTR
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
 
 #ifdef WITH_ASSOC_LIST	
 	if( jml->flags & JMLIST_ASSOCIATIVE )
@@ -1629,7 +1518,8 @@ ijmlist_idx_is_fragmented(jmlist jml,bool force_seeker,bool *fragmented)
 	jmlist_index i;
 	for( i = 0 ; i < (jml->idx_list.capacity - 1) ; i++ )
 	{
-		if( (jml->idx_list.plist[i] == 0) && (jml->idx_list.plist[i+1] != 0) )
+		if( (jml->idx_list.plist[i] == JMLIST_EMPTY_PTR) && 
+				(jml->idx_list.plist[i+1] != JMLIST_EMPTY_PTR) )
 		{
 			jmlist_debug(__func__,"found hole in position %u",i);
 			*fragmented = true;
@@ -1785,17 +1675,6 @@ jmlist_status
 ijmlist_ass_insert(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *ptr)
 {
 	jmlist_debug(__func__,"called with jml=%p and ptr=%p",jml,ptr);
-	
-#ifndef ALLOW_NULL_PTR
-	/* verify ptr */
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		jmlist_debug(__func__,"returning with failure.");
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
 	
 	/* verify key_ptr */
 	if( !key_ptr )
@@ -2066,16 +1945,6 @@ ijmlist_ass_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p, result=%p",jml,ptr,result);
 	
-#ifndef ALLOW_NULL_PTR
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_debug(__func__,"returning with failure.");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-	
 	if( !result )
 	{
 		jmlist_debug(__func__,"invalid result pointer specified (result=0)");
@@ -2245,16 +2114,6 @@ ijmlist_ass_get_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,v
 	   can repeat it here if you want... */
 
 	DCHECKSTART
-#ifndef ALLOW_NULL_PTR
-	if( !ptr )
-	{
-		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
-		jmlist_debug(__func__,"returning with failure.");
-		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
-		return JMLIST_ERROR_FAILURE;
-	}
-#endif
-
 	/* verify key_ptr */
 	if( !key_ptr )
 	{
@@ -2530,7 +2389,7 @@ ijmlist_idx_remove_by_index(jmlist jml,jmlist_index index)
 	jmlist_debug(__func__,"setting entry ptr (now %p) to NULL from list %p in index %u",jml->idx_list.plist[index],jml,index);
 
 	/* found the entry, clear it */
-	jml->idx_list.plist[index] = 0;
+	jml->idx_list.plist[index] = JMLIST_EMPTY_PTR;
 	jml->idx_list.usage--;
 
 	jmlist_mem.idx_list.used -= sizeof(void*);
@@ -2549,7 +2408,7 @@ ijmlist_idx_remove_by_index(jmlist jml,jmlist_index index)
 
 	if( (jml->flags & JMLIST_IDX_USE_FRAG_FLAG) && (jml->idx_list.fragmented == false) )
 	{
-		if( (index < (jml->idx_list.capacity-1)) && (jml->idx_list.plist[index+1] != 0) )
+		if( (index < (jml->idx_list.capacity-1)) && (jml->idx_list.plist[index+1] != JMLIST_EMPTY_PTR) )
 			jml->idx_list.fragmented = true;
 
 		/* else we'll keep it in false (not fragmented) */
@@ -2921,4 +2780,437 @@ ijmlist_ass_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
 	return JMLIST_ERROR_FAILURE;
 }
 #endif
+
+/*
+   jmlist_seek_start
+
+   Start seeking in a list, the fastest seeking process is different depending on the
+   list type thats why jmlist_seek_* routines were coded. There should be passed a pointer
+   to a seek_handle_t structure memory space which will be used to identify the seeking.
+
+   Only single-seeking is supported at the time, a seeking finishes by calling the
+   function jmlist_seek_end. That will allow other seeks to be done.
+*/
+jmlist_status
+jmlist_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p and handle=%p",jml,handle_ptr);
+
+	if( !jml )
+	{
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle pointer specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( jml->seeking == true ) {
+		jmlist_debug(__func__,"multiple concorrent seeks are not supported yet");
+		jmlist_errno = JMLIST_ERROR_UNSUPPORTED;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* set seeking flag */
+	jml->seeking = true;
+	jmlist_debug(__func__,"seek flag was set to %u",jml->seeking);
+
+	/* clear handle data for the specific list type */
+
+	if( jml->flags & JMLIST_INDEXED )
+	{
+		jmlist_debug(__func__,"passing control to indexed list seek_init routine.");
+		return ijmlist_idx_seek_start(jml,handle_ptr);
+	} else if( jml->flags & JMLIST_LINKED )
+	{
+		jmlist_debug(__func__,"passing control to linked list seek_init routine.");
+		return ijmlist_lnk_seek_start(jml,handle_ptr);
+	}
+#ifdef WITH_ASSOC_LIST
+	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	{
+		jmlist_debug(__func__,"passing control to the associative list seek_init routine.");
+		return ijmlist_ass_seek_start(jml,handle_ptr);
+	}
+#endif
+	
+	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
+	jmlist_debug(__func__,"returning with failure.");
+	jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+	return JMLIST_ERROR_FAILURE;
+}
+
+jmlist_status
+ijmlist_idx_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p and handle=%p",jml,handle_ptr);
+
+	if( !jml )
+	{
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle pointer specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	handle_ptr->next_idx = 0;
+	jmlist_debug(__func__,"handle index set to %u",handle_ptr->next_idx);
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
+
+jmlist_status
+ijmlist_lnk_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p and handle=%p",jml,handle_ptr);
+
+	if( !jml )
+	{
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle pointer specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	handle_ptr->next_lnk = jml->lnk_list.phead;
+	jmlist_debug(__func__,"handle next_lnk set to %p",handle_ptr->next_lnk);
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
+
+#ifdef WITH_ASSOC_LIST
+jmlist_status
+ijmlist_ass_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p and handle=%p",jml,handle_ptr);
+
+	if( !jml )
+	{
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle pointer specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	handle_ptr->next_ass = jml->ass_list.phead;
+	jmlist_debug(__func__,"handle next_ass set to %p",handle_ptr->next_ass);
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
+#endif
+
+jmlist_status
+jmlist_seek_end(jmlist jml,jmlist_seek_handle *handle_ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p and handle_ptr=%p",jml,handle_ptr);
+
+	if( !jml ) {
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle_ptr specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !jml->seeking ) {
+		jmlist_debug(__func__,"cannot stop seeking on a list that is not being seeked");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jml->seeking = false;
+	jmlist_debug(__func__,"seek flag set to %u",jml->seeking);
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
+
+/*
+   jmlist_seek_next
+
+   Parse list and obtain the next entry, an argument, handler structure
+   is used to determine where the seeking is at. Each list type have its own
+   handler data.
+*/
+jmlist_status
+jmlist_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p, handle_ptr=%p and ptr=%p",jml,handle_ptr,ptr);
+
+	if( !jml )
+	{
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !ptr ) {
+		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle_ptr specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( jml->seeking != true ) {
+		jmlist_debug(__func__,"seek should start by calling seek_start routine");
+		jmlist_errno = JMLIST_ERROR_FAILURE;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( jml->flags & JMLIST_INDEXED )
+	{
+		jmlist_debug(__func__,"passing control to indexed list seek_next routine.");
+		return ijmlist_idx_seek_next(jml,handle_ptr,ptr);
+	} else if( jml->flags & JMLIST_LINKED )
+	{
+		jmlist_debug(__func__,"passing control to linked list seek_next routine.");
+		return ijmlist_lnk_seek_next(jml,handle_ptr,ptr);
+	}
+#ifdef WITH_ASSOC_LIST
+	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	{
+		jmlist_debug(__func__,"passing control to the associative list seek_next routine.");
+		return ijmlist_ass_seek_next(jml,handle_ptr,ptr);
+	}
+#endif
+	
+	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
+	jmlist_debug(__func__,"returning with failure.");
+	jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+	return JMLIST_ERROR_FAILURE;
+}
+
+jmlist_status
+ijmlist_idx_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
+{
+	void *ptr_local;
+
+	jmlist_debug(__func__,"called with jml=%p, handle_ptr=%p, ptr=%p",jml,handle_ptr,ptr);
+
+	if( !jml ) {
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle_ptr specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !ptr ) {
+		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	bool fragmented;
+	jmlist_is_fragmented(jml,false,&fragmented);
+try_again:
+	/* test next index bounds */
+	if( (jml->flags & JMLIST_IDX_USE_SHIFT) || !fragmented )
+	{
+		if( handle_ptr->next_idx >= jml->idx_list.usage ) {
+			jmlist_debug(__func__,"next index (%u) reached the limit of the list entry count (%u)",
+					handle_ptr->next_idx,jml->idx_list.usage);
+			jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+			jmlist_debug(__func__,"returning with failure.");
+			return JMLIST_ERROR_FAILURE;
+		}
+	} else
+	{
+		if( handle_ptr->next_idx >= jml->idx_list.capacity ) {
+			jmlist_debug(__func__,"next index (%u) reached the limit of the list capacity (%u)",
+					handle_ptr->next_idx,jml->idx_list.capacity);
+			jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+			jmlist_debug(__func__,"returning with failure.");
+			return JMLIST_ERROR_FAILURE;
+		}
+	}
+
+	jmlist_debug(__func__,"accessing indexed list entry of index %u",handle_ptr->next_idx);
+	ptr_local = jml->idx_list.plist[handle_ptr->next_idx];
+	jmlist_debug(__func__,"indexed list entry of index %u has ptr=%p",handle_ptr->next_idx,ptr_local);
+
+	if(	ptr_local == JMLIST_EMPTY_PTR ) {
+		handle_ptr->next_idx++;
+		jmlist_debug(__func__,"entry is empty, increasing to the next index %u",handle_ptr->next_idx);
+		goto try_again;
+	}
+
+	jmlist_debug(__func__,"storing entry ptr=%p into ptr argument (ptr=%p)",ptr_local,ptr);
+	*ptr = ptr_local;
+
+	/* increase next index */
+	handle_ptr->next_idx++;
+	jmlist_debug(__func__,"increased handle (with ptr=%p) to the next index %u",
+			handle_ptr,handle_ptr->next_idx);
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+	goto try_again;
+}
+
+jmlist_status
+ijmlist_lnk_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
+{
+	void *ptr_local;
+
+	jmlist_debug(__func__,"called with jml=%p, handle_ptr=%p and ptr=%p",jml,handle_ptr,ptr);
+
+	if( !jml ) {
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle_ptr specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !ptr ) {
+		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr->next_lnk ) {
+		jmlist_debug(__func__,"there are no more entries to seek (reached the tail of the list)");
+		jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jmlist_debug(__func__,"accessing handle_ptr next link structure");
+	ptr_local = handle_ptr->next_lnk->ptr;
+	jmlist_debug(__func__,"storing entry ptr=%p into ptr argument (ptr=%p)",ptr_local,ptr);
+	*ptr = ptr_local;
+
+	handle_ptr->next_lnk = handle_ptr->next_lnk->next;
+	jmlist_debug(__func__,"updated handle to the next entry (new next_lnk=%p)",handle_ptr->next_lnk);
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
+
+#ifdef WITH_ASSOC_LIST
+jmlist_status
+ijmlist_ass_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
+{
+	void *ptr_local;
+
+	jmlist_debug(__func__,"called with jml=%p, handle_ptr=%p and ptr=%p",jml,handle_ptr,ptr);
+
+	if( !jml ) {
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr ) {
+		jmlist_debug(__func__,"invalid handle_ptr specified (handle_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !ptr ) {
+		jmlist_debug(__func__,"invalid ptr specified (ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !handle_ptr->next_ass ) {
+		jmlist_debug(__func__,"there are no more entries to seek (reached the tail of the list)");
+		jmlist_errno = JMLIST_ERROR_OUT_OF_BOUNDS;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jmlist_debug(__func__,"accessing handle_ptr next link structure");
+	ptr_local = handle_ptr->next_ass->ptr;
+	jmlist_debug(__func__,"storing entry ptr=%p into ptr argument (ptr=%p)",ptr_local,ptr);
+	*ptr = ptr_local;
+
+	handle_ptr->next_ass = handle_ptr->next_ass->next;
+	jmlist_debug(__func__,"updated handle to the next entry (new next_ass=%p)",handle_ptr->next_ass);
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}
+#endif
+
+/*
+   jmlist_find
+
+   Parse all entries from the list, calling the callback function for each of them,
+   when this callback returns result=jmlist_entry_found the seeking stops and this
+   function returns the corresponding entry ptr in ptr argument.
+*/
+jmlist_status
+jmlist_find(jmlist jml,JMLISTFINDCALLBACK callback,void *param,jmlist_lookup_result *result,void **ptr)
+{
+	jmlist_debug(__func__,"called with jml=%p, callback=%p, param=%p, result=%p and ptr=%p",
+			jml,callback,param,result,ptr);
+
+	return JMLIST_ERROR_UNIMPLEMENTED;
+}
 
