@@ -43,9 +43,21 @@ void jmlist_test_print_status(char *func,jmlist_status status)
 	printf("%s() = %s\n",func,status_str);
 }
 
+jmlist_status
+find_routine(void *ptr,void *param,jmlist_lookup_result *result)
+{
+	printf("find_routine PTR=%p result=%p param=%p\n",ptr,(void*)result,param);
+
+	if( ptr == param )
+		*result = jmlist_entry_found;
+
+	return JMLIST_ERROR_SUCCESS;
+}
+
 int jmlist_test(int argc,char *argv[])
 {
 	jmlist_status status;
+	jmlist_lookup_result result;
 	char *data[] = { "line 1", "line 2", "line 3" };
 	char buffer[64];
 	
@@ -439,6 +451,38 @@ int jmlist_test(int argc,char *argv[])
 	jmlist_free(jml);
 
 
+	/*
+	 * TEST 10: Test jmlist find function. This function parses the list and for each
+	 * entry it calls the callback function, in this case the callback function defined
+	 * in this code only compares ptr with param, if equal returns entry found and
+	 * the lookup should finish there.
+	 */
+	printf("  TEST #10 ------------------------------------------ \n");
+
+	params.flags = JMLIST_LINKED;
+	jmlist_create(&jml,&params);
+	jmlist_insert(jml,data[0]);
+	jmlist_insert(jml,data[1]);
+	jmlist_insert(jml,data[2]);
+	jmlist_dump(jml);
+	
+	status = jmlist_find(jml,find_routine,data[2],&result,&ptr);
+	if( (status == JMLIST_ERROR_SUCCESS) &&
+			(result == jmlist_entry_found) &&
+			(ptr == data[2]) ) 
+		printf("  TEST #10.1 OK\n");
+	else
+		printf("  TEST #10.1 NOT OK\n");
+
+	status = jmlist_find(jml,find_routine,"missing string",&result,&ptr);
+	if( (status == JMLIST_ERROR_SUCCESS) &&
+			(result == jmlist_entry_not_found) ) 
+		printf("  TEST #10.2 OK\n");
+	else
+		printf("  TEST #10.2 NOT OK\n");
+
+	jmlist_free(jml);
+	
 	/* END OF TESTS */
 	status = jmlist_uninitialize();
 	jmlist_test_print_status("jmlist_uninitialize",status);

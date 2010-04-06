@@ -94,7 +94,7 @@ typedef enum _jmlist_lookup_result
 	jmlist_entry_found
 } jmlist_lookup_result;
 
-typedef int (*JMLISTFINDCALLBACK) (void *ptr,void *param,jmlist_lookup_result *result);
+typedef jmlist_status (*JMLISTFINDCALLBACK) (void *ptr,void *param,jmlist_lookup_result *result);
 
 typedef struct _jmlist_params
 {

@@ -3208,9 +3208,104 @@ ijmlist_ass_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
 jmlist_status
 jmlist_find(jmlist jml,JMLISTFINDCALLBACK callback,void *param,jmlist_lookup_result *result,void **ptr)
 {
+	jmlist_lookup_result result_local;
+	jmlist_status jmls;
+	jmlist_index entry_count;
+	jmlist_seek_handle shandle;
+	void *ptr_seek;
+
 	jmlist_debug(__func__,"called with jml=%p, callback=%p, param=%p, result=%p and ptr=%p",
 			jml,callback,param,result,ptr);
 
-	return JMLIST_ERROR_UNIMPLEMENTED;
+	if( !jml ) {
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !callback ) {
+		jmlist_debug(__func__,"invalid callback specified (callback=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !result ) {
+		jmlist_debug(__func__,"invalid result pointer specified (result=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* start seeking the list */
+
+	jmls = jmlist_entry_count(jml,&entry_count);
+	if( jmls != JMLIST_ERROR_SUCCESS ) {
+		jmlist_debug(__func__,"unable to get entry count from list");
+		jmlist_errno = JMLIST_ERROR_FAILURE;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jmlist_debug(__func__,"seeking throughtout %u entries of the list",entry_count);
+
+	jmls = jmlist_seek_start(jml,&shandle);
+	if( jmls == JMLIST_ERROR_FAILURE ) {
+		jmlist_debug(__func__,"unable to seek the list");
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	while(entry_count)
+	{
+		jmls = jmlist_seek_next(jml,&shandle,&ptr_seek);
+		if( jmls != JMLIST_ERROR_SUCCESS ) {
+			jmlist_debug(__func__,"seek_next returned failure, unexpected list seeking failure");
+			jmlist_debug(__func__,"returning with failure.");
+			return JMLIST_ERROR_FAILURE;
+		}
+
+		jmlist_debug(__func__,"got entry with ptr=%p, calling callback=%p",ptr_seek,callback);
+		callback(ptr_seek,param,&result_local);
+		jmlist_debug(__func__,"callback returned with result=%d",result_local);
+
+		if( result_local == jmlist_entry_found )
+		{
+			jmlist_debug(__func__,"finished search, entry was found");
+			if( ptr ) {
+				jmlist_debug(__func__,"writing ptr=%p into ptr argument",ptr_seek);
+				*ptr = ptr_seek;
+			}
+
+			jmlist_debug(__func__,"updating result argument");
+			*result = result_local;
+
+			jmls = jmlist_seek_end(jml,&shandle);
+			if( jmls != JMLIST_ERROR_SUCCESS ) {
+				jmlist_debug(__func__,"unable to end seek, jmlist_seek_end failed");
+				jmlist_debug(__func__,"returning with failure.");
+				return JMLIST_ERROR_FAILURE;
+			}
+			
+			jmlist_debug(__func__,"returning with success.");
+			return JMLIST_ERROR_SUCCESS;
+		}
+		entry_count--;
+	}
+
+	jmlist_debug(__func__,"seeking was ended, calling seek_end");
+	jmls = jmlist_seek_end(jml,&shandle);
+	if( jmls != JMLIST_ERROR_SUCCESS ) {
+		jmlist_debug(__func__,"unable to end seek, jmlist_seek_end failed");
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jmlist_debug(__func__,"entry was not found, updating result argument");
+	*result = jmlist_entry_not_found;
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
 }
 
