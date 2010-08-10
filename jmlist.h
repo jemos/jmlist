@@ -28,7 +28,7 @@
 #define JMLIST_EMPTY_PTR (void*)(-1)
 
 typedef uint32_t jmlist_index;
-typedef int (*JMLISTPARSERCALLBACK) (void *ptr,void *param);
+typedef void (*JMLISTPARSERCALLBACK) (void *ptr,void *param);
 
 typedef enum _jmlist_status
 {
