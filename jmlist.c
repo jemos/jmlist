@@ -14,7 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with jmlist.  If not, see <http://www.gnu.org/licenses/>.
 
-	Copyright (C) 2009 Jean Mousinho
+	Copyright (C) 2009 Jean-François Mousinho (jean.mousinho@ist.utl.pt)
 */
 
 /**
@@ -3309,3 +3309,81 @@ jmlist_find(jmlist jml,JMLISTFINDCALLBACK callback,void *param,jmlist_lookup_res
 	return JMLIST_ERROR_SUCCESS;
 }
 
+/*
+   jmlist_parse
+
+   This function will parse all the jmlist entries and call the callback
+   for each entry. Its possible to pass a specific param to the callback
+   also.
+*/
+jmlist_status
+jmlist_parse(jmlist jml,JMLISTPARSERCALLBACK callback,void *param)
+{
+	jmlist_status jmls;
+	jmlist_index entry_count;
+	jmlist_seek_handle shandle;
+	void *ptr_seek;
+
+	jmlist_debug(__func__,"called with jml=%p, callback=%p, param=%p",
+			jml,callback,param);
+
+	if( !jml ) {
+		jmlist_debug(__func__,"invalid jml specified (jml=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	if( !callback ) {
+		jmlist_debug(__func__,"invalid callback specified (callback=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* start seeking the list */
+
+	jmls = jmlist_entry_count(jml,&entry_count);
+	if( jmls != JMLIST_ERROR_SUCCESS ) {
+		jmlist_debug(__func__,"unable to get entry count from list");
+		jmlist_errno = JMLIST_ERROR_FAILURE;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jmlist_debug(__func__,"seeking throughtout %u entries of the list",entry_count);
+
+	jmls = jmlist_seek_start(jml,&shandle);
+	if( jmls == JMLIST_ERROR_FAILURE ) {
+		jmlist_debug(__func__,"unable to seek the list");
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	while(entry_count)
+	{
+		jmls = jmlist_seek_next(jml,&shandle,&ptr_seek);
+		if( jmls != JMLIST_ERROR_SUCCESS ) {
+			jmlist_debug(__func__,"seek_next returned failure, unexpected list seeking failure");
+			jmlist_debug(__func__,"returning with failure.");
+			return JMLIST_ERROR_FAILURE;
+		}
+
+		jmlist_debug(__func__,"got entry with ptr=%p, calling callback=%p",ptr_seek,callback);
+		callback(ptr_seek,param);
+		jmlist_debug(__func__,"callback returned");
+
+		entry_count--;
+	}
+
+	jmlist_debug(__func__,"seeking was ended, calling seek_end");
+	jmls = jmlist_seek_end(jml,&shandle);
+	if( jmls != JMLIST_ERROR_SUCCESS ) {
+		jmlist_debug(__func__,"unable to end seek, jmlist_seek_end failed");
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	jmlist_debug(__func__,"returning with success.");
+	return JMLIST_ERROR_SUCCESS;
+}

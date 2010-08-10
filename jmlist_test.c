@@ -14,7 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with jmlist.  If not, see <http://www.gnu.org/licenses/>.
 
-	Copyright (C) 2009 Jean Mousinho
+	Copyright (C) 2009 Jean-François Mousinho (jean.mousinho@ist.utl.pt)
 */
 
 #define _GNU_SOURCE

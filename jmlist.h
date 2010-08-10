@@ -14,7 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with jmlist.  If not, see <http://www.gnu.org/licenses/>.
 
-	Copyright (C) 2009 Jean Mousinho
+	Copyright (C) 2009 Jean-François Mousinho (jean.mousinho@ist.utl.pt)
 */
 
 #ifndef _JMLIST_H
@@ -95,6 +95,7 @@ typedef enum _jmlist_lookup_result
 } jmlist_lookup_result;
 
 typedef jmlist_status (*JMLISTFINDCALLBACK) (void *ptr,void *param,jmlist_lookup_result *result);
+typedef jmlist_status (*JMLISTDUMPCALLBACK) (void *ptr,int options);
 
 typedef struct _jmlist_params
 {
@@ -221,6 +222,7 @@ jmlist_status jmlist_push(jmlist jml,void *ptr);
 jmlist_status jmlist_pop(jmlist jml,void **ptr);
 jmlist_status jmlist_insert(jmlist jml,void *ptr);
 jmlist_status jmlist_dump(jmlist jml);
+jmlist_status jmlist_dump_pretty(jmlist jml,JMLISTDUMPCALLBACK callback,int options);
 void jmlist_debug(const char *func,const char *fmt,...);
 jmlist_status jmlist_status_to_string(jmlist_status status,char *output,size_t output_len);
 jmlist_status jmlist_is_fragmented(jmlist jml,bool force_seeker,bool *fragmented);
