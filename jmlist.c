@@ -1,54 +1,26 @@
 /*
 	This file is part of jmlist.
 
-	jmlist is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+	The MIT License (MIT)
+	Copyright (c) 2014 Jean-François Mousinho
 
-	jmlist is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the Software is
+	furnished to do so, subject to the following conditions:
 
-	You should have received a copy of the GNU General Public License
-	along with jmlist.  If not, see <http://www.gnu.org/licenses/>.
+	The above copyright notice and this permission notice shall be included in
+	all copies or substantial portions of the Software.
 
-	Copyright (C) 2009 Jean-François Mousinho (jean.mousinho@ist.utl.pt)
-*/
-
-/**
-  * funções a implementar:
-	- jmlist_initialize(flags..,)
-		- com lista interna de jmlists ou nao
-		- com ou sem tags
-	- jmlist_lookup(
-		- procurar entrada numa lista, comparacao via *jmlist
-	- jmlist_free
-	- jmlist_flag_test
-	- jmlist_flag_set
-
-  dependendo do tipo de lista, existem várias funções para criar,
-  allocar, remover, substituir, cortar, inserir, etc. ou seja
-  para cada tipo de lista existe um conjunto de funções para gerir
-  a mesma. No futuro estas funções deverão poder ter callbacks
-  do cliente.
-
-  v1.0.1:
-	- allow inteligent gradient for indexed lists. this grandient
-	should be based on past information.
- 
-  v1.0-r5:
-	- indexed list OK (with params.malloc_inc)
-	- linked list OK
-
- useful links:
-  http://code.google.com/p/google-sparsehash/ 
-
-  indexed lists dont have an usage bit map, this is required to
-  work with non-SHIFTED idx lists, it isn't good to associate
-  ptr=0 as the empty entry. The entry ptr should be able to be
-  any value...
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+	THE SOFTWARE.
 */
 
 #include <unistd.h>
