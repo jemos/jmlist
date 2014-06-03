@@ -23,8 +23,6 @@
 	THE SOFTWARE.
 */
 
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,13 +32,6 @@
 
 #include "jmlist_test.h"
 #include "jmlist.h"
-
-#ifdef WITH_MAIN_ROUTINE
-int main(int argc,char *argv[])
-{
-	return jmlist_test(argc,argv);
-}
-#endif
 
 void jmlist_test_print_status(char *func,jmlist_status status)
 {
@@ -60,7 +51,7 @@ find_routine(void *ptr,void *param,jmlist_lookup_result *result)
 	return JMLIST_ERROR_SUCCESS;
 }
 
-int jmlist_test(int argc,char *argv[])
+int main(int argc,char *argv[])
 {
 	jmlist_status status;
 	jmlist_lookup_result result;
@@ -77,7 +68,9 @@ int jmlist_test(int argc,char *argv[])
 	 * then dump the list to output.
 	 */
 	
-	printf("  TEST #1 ------------------------------------------ \n");
+	printf(	"\n  TEST #1 ------------------------------------------------------- \n"
+			"    create indexed list without shifts, try to insert and remove some\n"
+			"    entries then dump the list to output.\n\n");
 
 	jmlist jml;
 	struct _jmlist_params params = { .flags = JMLIST_INDEXED };
@@ -101,7 +94,9 @@ int jmlist_test(int argc,char *argv[])
 	 * than JMLIST_IDXLIST_DEF_MALLOC_INC entries.
 	 */
 	
-	printf("  TEST #2 ------------------------------------------ \n");
+	printf(	"\n  TEST #2 ------------------------------------------------------- \n"
+			"    Create indexed list WITHOUT shifts, try to insert and remove \n"
+			"    in a list bigger than JMLIST_IDXLIST_DEF_MALLOC_INC entries.\n\n");
 
 	params.flags = JMLIST_INDEXED;
 	params.idx_list.malloc_inc = JMLIST_IDXLIST_DEF_MALLOC_INC/2;
@@ -127,7 +122,9 @@ int jmlist_test(int argc,char *argv[])
 	 * test 3: create indexed list WITH shifts, try to insert and remove some entries..
 	 */
 	
-	printf("  TEST #3 ------------------------------------------ \n");
+	printf(	"\n  TEST #3 ------------------------------------------------------- \n"
+			"    Create indexed list with shifts, try to insert and remove some\n"
+			"    entries..\n\n");
 
 	params.flags = JMLIST_INDEXED | JMLIST_IDX_USE_SHIFT;
 	params.idx_list.malloc_inc = JMLIST_IDXLIST_DEF_MALLOC_INC/2;
@@ -175,7 +172,11 @@ int jmlist_test(int argc,char *argv[])
 	 * should not need to seek throughout the list, being O(k) then.
 	 */
 	
-	printf("  TEST #4 ------------------------------------------ \n");
+	printf(	"\n  TEST #4 ------------------------------------------------------- \n"
+			"    Verify that jmlist_is_fragmented doesn't seek the list when JMLIST_IDX_USE_FRAG_FLAG"
+			"    is set. create indexed list with JMLIST_IDX_USE_FRAG_FLAG, inserts and removes"
+			"    should flag the list as fragmented whenever that happens. jmlist_is_fragmented"
+			"    should not need to seek throughout the list, being O(k) then.\n\n");
 
 	params.flags = JMLIST_INDEXED | JMLIST_IDX_USE_FRAG_FLAG;
 	params.idx_list.malloc_inc = JMLIST_IDXLIST_DEF_MALLOC_INC;
@@ -201,7 +202,9 @@ int jmlist_test(int argc,char *argv[])
 	 * insert and remove various entries.
 	 */
 
-	printf("  TEST #5 ------------------------------------------ \n");
+	printf(	"\n  TEST #5 ------------------------------------------------------- \n"
+			"    Test the linked list basic operations, create a linked list,\n"
+			"    insert and remove various entries..\n\n");
 
 	params.flags = JMLIST_LINKED;
 	jmlist_create(&jml,&params);
@@ -237,7 +240,9 @@ int jmlist_test(int argc,char *argv[])
 	/*
 	 * test 6: test the internal list, create various lists and check for memory leaks.
 	 */
-	printf("  TEST #6 ------------------------------------------ \n");
+	printf(	"\n  TEST #6 ------------------------------------------------------- \n"
+			"    test the internal list, create various lists and check for\n"
+			"    memory leaks..\n\n");
 
 	struct _jmlist_memory_info jml_mem;
 	
@@ -287,7 +292,8 @@ int jmlist_test(int argc,char *argv[])
 	/*
 	 * TEST 7: Test the associative list type. 
 	 */
-	printf("  TEST #7 ------------------------------------------ \n");
+	printf(	"\n  TEST #7 ------------------------------------------------------- \n"
+			"    Test the associative list type. \n\n");
 
 	memset(&params,0,sizeof(params));
 	params.flags = JMLIST_ASSOCIATIVE;
@@ -334,7 +340,8 @@ int jmlist_test(int argc,char *argv[])
 	/*
 	 * TEST 8: Test replace operation on all list types.
 	 */
-	printf("  TEST #8 ------------------------------------------ \n");
+	printf(	"\n  TEST #8 ------------------------------------------------------- \n"
+			"    Test the replace operation on all list types.\n\n");
 	
 	params.flags = JMLIST_INDEXED;
 	jmlist_create(&jml,&params);
@@ -393,7 +400,8 @@ int jmlist_test(int argc,char *argv[])
 	/*
 	 * TEST 9: Test jmlist seeking functions.
 	 */
-	printf("  TEST #9 ------------------------------------------ \n");
+	printf(	"\n  TEST #9 ------------------------------------------------------- \n"
+			"    Test jmlist seeking functions on all list types.\n\n");
 
 	jmlist_seek_handle shandle;
 	
@@ -463,7 +471,11 @@ int jmlist_test(int argc,char *argv[])
 	 * in this code only compares ptr with param, if equal returns entry found and
 	 * the lookup should finish there.
 	 */
-	printf("  TEST #10 ------------------------------------------ \n");
+	printf(	"\n  TEST #10 ------------------------------------------------------- \n"
+			"    Test jmlist find function. This function parses the list and for each\n"
+	 		"    entry it calls the callback function, in this case the callback function defined\n"
+	 		"    in this code only compares ptr with param, if equal returns entry found and\n"
+	 		"    the lookup should finish there.\n\n");
 
 	params.flags = JMLIST_LINKED;
 	jmlist_create(&jml,&params);

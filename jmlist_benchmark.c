@@ -59,7 +59,7 @@ int jmlist_benchmark(int argc,char *argv[])
 	jmlist_index *idx_list;
 	
 	/* initialize jmlist engine */
-	struct _jmlist_init_params init_params = { .fdump = stdout, .fdebug = stdout, .fverbose = stdout, .flags = 0};
+	struct _jmlist_init_params init_params = { .fdump = stdout, .fdebug = stdout, .fverbose = stdout, .flags = JMLIST_FLAG_DEBUG};
 	status = jmlist_initialize(&init_params);
 	jmlist_benchmark_print_status("jmlist_initialize",status);
 
@@ -77,6 +77,7 @@ int jmlist_benchmark(int argc,char *argv[])
 
 	// JMLIST INDEXED
 
+	memset(&params,0,sizeof(params));
 	params.flags = JMLIST_INDEXED | JMLIST_IDX_USE_SHIFT;
 	jmlist_create(&jml,&params);
 

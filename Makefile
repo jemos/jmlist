@@ -1,45 +1,45 @@
 #
 # jmlist v1.0
-# Copyright (C) 2009 Jean Mousinho
 #
-# This file is part of jmlist.
+# The MIT License (MIT)
+# Copyright (c) 2014 Jean-François Mousinho
 #
-# jmlist is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-# jmlist is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# You should have received a copy of the GNU General Public License
-# along with jmlist.  If not, see <http://www.gnu.org/licenses/>.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 
 CC		:= gcc
-CFLAGS	:= -O -Wall -pedantic -std=c99 -Wuninitialized -Wsign-compare -Wno-pointer-sign -Wformat-security
+CFLAGS	:= -Wall -pedantic -std=c99 -O
 LFLAGS	:=
-LIBS	:= -lm -lz `mysql_config --cflags --libs`
-OBJS	:= jmlist.o jmlist_test.o
-.SUFFIXES: .o .c
-.c.o:
-	$(CC) $(CFLAGS) -c $<
-
-all: jmlist jmlist_benchmark
-
-jmlist: jmlist.c jmlist.h jmlist_test.c
-	$(CC) -g -DENABLE_DEBUG -DALLOW_NULL_PTR -DWITH_MAIN_ROUTINE -DWITH_ASSOC_LIST $(CFLAGS) -o jmlist_test jmlist.c jmlist.h jmlist_test.c
+LIBS	:= 
+OBJS	:= jmlist_test jmlist_benchmark
 
 %.o: %.c
-	$(CC) -g $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-benchmark: jmlist_benchmark
+all: jmlist_test jmlist_benchmark
 
-jmlist_benchmark: jmlist.c jmlist.h jmlist_benchmark.c
-	$(CC) -DALLOW_NULL_PTR -DWITH_ASSOC_LIST $(CFLAGS) -o jmlist_benchmark jmlist.c jmlist_benchmark.c
+jmlist_test: jmlist_test.c jmlist.c jmlist.h
+	$(CC) $(CFLAGS) -g -DJMLDEBUG -o jmlist_test jmlist.c jmlist.h jmlist_test.c
+
+jmlist_benchmark: jmlist_benchmark.c jmlist.c jmlist.h
+	$(CC) $(CFLAGS) -o jmlist_benchmark jmlist.c jmlist_benchmark.c
 
 clean:
-	rm *.o jmlist_benchmark jmlist 2>&1 > /dev/null | echo > /dev/null
+	rm -f *.o jmlist_benchmark jmlist_test
 

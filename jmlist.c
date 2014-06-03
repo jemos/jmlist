@@ -1315,7 +1315,7 @@ ijmlist_lnk_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 */
 void jmlist_debug(const char *func,const char *fmt,...)
 {
-#ifdef ENABLE_DEBUG
+#ifdef JMLDEBUG
 	va_list args;
 	
 	va_start(args,fmt);
