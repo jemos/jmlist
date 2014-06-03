@@ -24,7 +24,7 @@ some types of access is better one list instead of the other.
 INSTALATION
 ===========
 
-This is not a package, its just source code, link it with your code
+This is not a package, it's just source code, link it with your code
 and thats it.
 
 
@@ -36,9 +36,9 @@ initialized before it can be used, that will allow one to specify
 the debugging output file descriptor, internal list usage or not,
 besides others.
 
-Before starting with code, all jmlist_* functions return a status
-code, which you can look for success with JMLIST_ERROR_SUCCESS.
-If it returns JMLIST_ERROR_FAILURE, look for jmlist_errno variable
+Before starting with code, all `jmlist_*` functions return a status
+code, which you can look for success with `JMLIST_ERROR_SUCCESS`.
+If it returns `JMLIST_ERROR_FAILURE`, look for jmlist_errno variable
 contents, its also a status code but more specific.
 
 	jmlist_status status;
@@ -76,10 +76,14 @@ contents, its also a status code but more specific.
 	/* now clear the list */
 	status = jmlist_free(jml);
 
-More examples later...
+This example shows basic usage of jmlist.
 
----
-Copyright (C) 2009
-Jean François Mousinho (jean.mousinho@ist.utl.pt)
-Informatics Center of IST - Technical University of Lisbon
+--------------------------------------------------
+Copyright (C) 2014 Jean-François Mousinho
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
