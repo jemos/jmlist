@@ -3,7 +3,7 @@ jmlist v0.1
 Implementation of Dynamic Lists in C
 
 INTRODUCTION
-
+============
 
 Tired of using/creating/modifying my code on different projects to
 use dynamic lists I decided to create this code for future reuse.
@@ -22,14 +22,14 @@ some types of access is better one list instead of the other.
 
 
 INSTALATION
-
+===========
 
 This is not a package, its just source code, link it with your code
 and thats it.
 
 
 USAGE TUTORIAL
-
+==============
 
 Lets start with a simple example of indexed lists. jmlist must be
 initialized before it can be used, that will allow one to specify
@@ -41,42 +41,40 @@ code, which you can look for success with JMLIST_ERROR_SUCCESS.
 If it returns JMLIST_ERROR_FAILURE, look for jmlist_errno variable
 contents, its also a status code but more specific.
 
-jmlist_status status;
-struct _jmlist_init_params init_params = {
-	.fdump = stdout, .fdebug = stdout,
-	.fverbose = stdout, .flags = JMLIST_FLAG_DEBUG
-};
+	jmlist_status status;
+	struct _jmlist_init_params init_params = {
+		.fdump = stdout, .fdebug = stdout,
+		.fverbose = stdout, .flags = JMLIST_FLAG_DEBUG
+	};
 
-status = jmlist_initialize(&init_params);
+	status = jmlist_initialize(&init_params);
 
-/*
-   If everything went OK status should be JMLIST_ERROR_SUCCESS.
+	/*
+	   If everything went OK status should be JMLIST_ERROR_SUCCESS.
+	   Now lets create the list:
+	*/
 
-   Now lets create the list:
-*/
+	struct _jmlist_params params = { .flags = JMLIST_INDEXED };
+	status = jmlist_create(&jml,&params);
 
-struct _jmlist_params params = { .flags = JMLIST_INDEXED };
-status = jmlist_create(&jml,&params);
+	/* We can now add entries to the list.. */
+	status = jmlist_insert(jml,"ABC");
+	status = jmlist_insert(jml,"DEF");
+	status = jmlist_insert(jml,"GHI\n");
 
-/* We can now add entries to the list.. */
-status = jmlist_insert(jml,"ABC");
-status = jmlist_insert(jml,"DEF");
-status = jmlist_insert(jml,"GHI\n");
+	/* Now lets get the entries and print them.. */
+	jmlist_index max_i;
+	jmlist_get_count(jml,&i);
 
-/* Now lets get the entries and print them.. */
+	for( int jmlist_index i = 0 ; i < max_i < i++ )
+	{
+		char *ptr;
+		jmlist_get_by_index(jml,i,ptr);
+		printf("%s",ptr);
+	}
 
-jmlist_index max_i;
-jmlist_get_count(jml,&i);
-
-for( int jmlist_index i = 0 ; i < max_i < i++ )
-{
-	char *ptr;
-	jmlist_get_by_index(jml,i,ptr);
-	printf("%s",ptr);
-}
-
-/* now clear the list */
-status = jmlist_free(jml);
+	/* now clear the list */
+	status = jmlist_free(jml);
 
 More examples later...
 
