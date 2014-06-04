@@ -65,7 +65,6 @@ jmlist_status ijmlist_lnk_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr);
 jmlist_status ijmlist_lnk_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr);
 
 /* associative list routines */
-#ifdef WITH_ASSOC_LIST
 jmlist_status ijmlist_ass_get_by_index(jmlist jml,jmlist_index index,void **ptr);
 jmlist_status ijmlist_ass_get_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void **ptr);
 jmlist_status ijmlist_ass_insert(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *ptr);
@@ -80,7 +79,6 @@ jmlist_status ijmlist_ass_remove_by_index(jmlist jml,jmlist_index index);
 jmlist_status ijmlist_ass_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
 jmlist_status ijmlist_ass_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr);
 jmlist_status ijmlist_ass_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr);
-#endif
 
 unsigned int jmlist_malloc_counter = 0;
 unsigned int jmlist_free_counter = 0;
@@ -240,7 +238,7 @@ ijmlist_idx_set_capacity(jmlist jml,jmlist_index capacity)
 	jmlist_debug(__func__,"new jml_mem.idx_list.total is %u",jmlist_mem.idx_list.total);
 	jmlist_debug(__func__,"new jml_mem.idx_list.used is %u",jmlist_mem.idx_list.used);
 
-	jmlist_debug(__func__,"memset %u from %p of %u bytes long",JMLIST_EMPTY_PTR,
+	jmlist_debug(__func__,"memset %p from %p of %u bytes long",(void*)JMLIST_EMPTY_PTR,
 		jml->idx_list.plist+jml->idx_list.capacity,sizeof(void*)*(capacity-jml->idx_list.capacity));
 
 	void **ptr_seeker = jml->idx_list.plist+jml->idx_list.capacity;
@@ -248,7 +246,7 @@ ijmlist_idx_set_capacity(jmlist jml,jmlist_index capacity)
 			*ptr_seeker = JMLIST_EMPTY_PTR;
 	}
 	jml->idx_list.capacity = capacity;
-	jml->idx_list.usage = 0;
+	//jml->idx_list.usage = 0;
 		
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;
@@ -844,11 +842,15 @@ jmlist_create(jmlist *new_jml,jmlist_params params)
 		jmlist_debug(__func__,"linked list flag detected (new_jml=%p)",*new_jml);
 		
 		/* linked-list type, initialize list parameters */
+		(*new_jml)->lnk_list.phead = 0;
+		(*new_jml)->lnk_list.usage = 0;
 	} else if( params->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"associative list flag detected (new_jml=%p)",*new_jml);
 
 		/* associative-list type, initialize list parameters */
+		(*new_jml)->ass_list.phead = 0;
+		(*new_jml)->ass_list.usage = 0;
 	} else
 	{
 		jmlist_debug(__func__,"invalid or unsupported list type new_jml=%p, flags=%u",*new_jml,(*new_jml)->flags);
@@ -1043,14 +1045,11 @@ jmlist_get_by_index(jmlist jml,jmlist_index index,void **ptr)
 	{
 		jmlist_debug(__func__,"passing control to linked list get_by_index routine.");
 		return ijmlist_lnk_get_by_index(jml,index,ptr);
-	}
-#ifdef WITH_ASSOC_LIST
-	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	} else if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to the associative list get_by_index routine.");
 		return ijmlist_ass_get_by_index(jml,index,ptr);
 	}
-#endif
 	
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
@@ -1080,14 +1079,11 @@ jmlist_remove_by_ptr(jmlist jml,void *ptr)
 	{
 		jmlist_debug(__func__,"passing control to linked list remove_by_ptr routine.");
 		return ijmlist_lnk_remove_by_ptr(jml,ptr);
-	}
-#ifdef WITH_ASSOC_LIST
-	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	} else if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to the associative list remove_by_ptr routine.");
 		return ijmlist_ass_remove_by_ptr(jml,ptr);
 	}
-#endif
 	
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
@@ -1131,13 +1127,11 @@ jmlist_free(jmlist jml)
 		jmlist_debug(__func__,"calling the linked list free routine.");
 		if( ijmlist_lnk_free(jml) == JMLIST_ERROR_FAILURE )
 			return JMLIST_ERROR_FAILURE;
-#ifdef WITH_ASSOC_LIST
 	} else if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"calling the associative free routine...");
 		if( ijmlist_ass_free(jml) == JMLIST_ERROR_FAILURE )
 			return JMLIST_ERROR_FAILURE;
-#endif
 	} else
 	{
 		jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",(void*)jml,jml->flags);
@@ -1411,12 +1405,10 @@ jmlist_insert_with_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,v
 {
 	jmlist_debug(__func__,"called with jml=%p, ptr=%p",jml,ptr);
 
-#ifdef WITH_ASSOC_LIST	
 	if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		return ijmlist_ass_insert(jml,key_ptr,key_len,ptr);
 	}
-#endif
 
 	/* insert with key specification is only supported in associative list
 	   types for now. */
@@ -1441,13 +1433,12 @@ jmlist_dump(jmlist jml)
 		jmlist_debug(__func__,"passing control to linked list dump routine.");
 		return ijmlist_lnk_dump(jml);
 	}
-#ifdef WITH_ASSOC_LIST
 	 else if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to associative list dump routine.");
 		return ijmlist_ass_dump(jml);
 	}
-#endif
+
 	
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
@@ -1589,7 +1580,6 @@ jmlist_free_all(void)
 	return JMLIST_ERROR_SUCCESS;
 }
 
-#ifdef WITH_ASSOC_LIST
 /*
  * associative list method get by index. associative list is nothing but an linked list
  * with a special parameter, the key, so an index access is equal in both lists.
@@ -1640,9 +1630,7 @@ ijmlist_ass_get_by_index(jmlist jml,jmlist_index index,void **ptr)
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;
 }
-#endif
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_insert(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *ptr)
 {
@@ -1744,9 +1732,7 @@ ijmlist_ass_insert(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void 
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;	
 }
-#endif
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_remove_by_ptr(jmlist jml,void *ptr)
 {
@@ -1827,9 +1813,7 @@ ijmlist_ass_remove_by_ptr(jmlist jml,void *ptr)
 	jmlist_debug(__func__,"returning with failure.");
 	return JMLIST_ERROR_FAILURE;
 }
-#endif
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_dump(jmlist jml)
 {
@@ -1880,9 +1864,7 @@ ijmlist_ass_dump(jmlist jml)
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;
 }
-#endif
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_free(jmlist jml)
 {
@@ -1909,9 +1891,7 @@ ijmlist_ass_free(jmlist jml)
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;
 }
-#endif
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 {
@@ -1958,9 +1938,7 @@ ijmlist_ass_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result)
 	jmlist_debug(__func__,"returning with failure.");
 	return JMLIST_ERROR_FAILURE;
 }
-#endif
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_key_exists(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,jmlist_lookup_result *result)
 {
@@ -2025,7 +2003,6 @@ ijmlist_ass_key_exists(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,j
 	jmlist_debug(__func__,"returning with failure.");
 	return JMLIST_ERROR_FAILURE;
 }
-#endif
 
 /*
  * get method for lists that have keys associated.
@@ -2062,13 +2039,11 @@ jmlist_get_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *
 	}
 
 	/* for now this function is only supported in associative lists */	
-#ifdef WITH_ASSOC_LIST
 	if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to the associative get by key routine.");
 		return ijmlist_ass_get_by_key(jml,key_ptr,key_len,ptr);
 	}
-#endif
 
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
@@ -2076,7 +2051,6 @@ jmlist_get_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *
 	return JMLIST_ERROR_FAILURE;
 }
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_get_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void **ptr)
 {
@@ -2132,7 +2106,6 @@ ijmlist_ass_get_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,v
 	jmlist_debug(__func__,"returning with failure.");
 	return JMLIST_ERROR_FAILURE;
 }
-#endif
 
 /*
    jmlist_remove_by_key
@@ -2161,13 +2134,11 @@ jmlist_remove_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len)
 		return JMLIST_ERROR_FAILURE;
 	}
 
-#ifdef WITH_ASSOC_LIST
 	if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to associative list remove by key routine.");
 		return ijmlist_ass_remove_by_key(jml,key_ptr,key_len);
 	}
-#endif
 
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
@@ -2175,7 +2146,6 @@ jmlist_remove_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len)
 	return JMLIST_ERROR_FAILURE;
 }
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_remove_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len)
 {
@@ -2256,7 +2226,6 @@ ijmlist_ass_remove_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_le
 	jmlist_debug(__func__,"returning with failure.");
 	return JMLIST_ERROR_FAILURE;
 }
-#endif
 
 jmlist_status
 jmlist_entry_count(jmlist jml,jmlist_index *entry_count)
@@ -2304,13 +2273,11 @@ jmlist_remove_by_index(jmlist jml,jmlist_index index)
 		jmlist_debug(__func__,"passing control to linked list remove_by_index routine.");
 		return ijmlist_lnk_remove_by_index(jml,index);
 	}
-#ifdef WITH_ASSOC_LIST
 	else if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to the associative list remove_by_index routine.");
 		return ijmlist_ass_remove_by_index(jml,index);
 	}
-#endif
 	
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
@@ -2460,7 +2427,6 @@ ijmlist_lnk_remove_by_index(jmlist jml,jmlist_index index)
 	return JMLIST_ERROR_FAILURE;
 }
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_remove_by_index(jmlist jml,jmlist_index index)
 {
@@ -2550,7 +2516,6 @@ ijmlist_ass_remove_by_index(jmlist jml,jmlist_index index)
 	jmlist_debug(__func__,"returning with failure.");
 	return JMLIST_ERROR_FAILURE;
 }
-#endif
 
 /*
    jmlist_replace_by_index
@@ -2579,14 +2544,11 @@ jmlist_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
 	{
 		jmlist_debug(__func__,"passing control to linked list replace_by_index routine.");
 		return ijmlist_lnk_replace_by_index(jml,index,new_ptr);
-	}
-#ifdef WITH_ASSOC_LIST
-	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	} else if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to the associative list replace_by_index routine.");
 		return ijmlist_ass_replace_by_index(jml,index,new_ptr);
 	}
-#endif
 	
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
@@ -2698,7 +2660,6 @@ ijmlist_lnk_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
 	return JMLIST_ERROR_FAILURE;
 }
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
 {
@@ -2751,7 +2712,6 @@ ijmlist_ass_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr)
 	jmlist_debug(__func__,"returning with failure.");
 	return JMLIST_ERROR_FAILURE;
 }
-#endif
 
 /*
    jmlist_seek_start
@@ -2804,15 +2764,12 @@ jmlist_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr)
 	{
 		jmlist_debug(__func__,"passing control to linked list seek_init routine.");
 		return ijmlist_lnk_seek_start(jml,handle_ptr);
-	}
-#ifdef WITH_ASSOC_LIST
-	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	} else if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to the associative list seek_init routine.");
 		return ijmlist_ass_seek_start(jml,handle_ptr);
 	}
-#endif
-	
+
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
 	jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
@@ -2873,7 +2830,6 @@ ijmlist_lnk_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr)
 	return JMLIST_ERROR_SUCCESS;
 }
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr)
 {
@@ -2900,7 +2856,6 @@ ijmlist_ass_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr)
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;
 }
-#endif
 
 jmlist_status
 jmlist_seek_end(jmlist jml,jmlist_seek_handle *handle_ptr)
@@ -2984,14 +2939,11 @@ jmlist_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
 	{
 		jmlist_debug(__func__,"passing control to linked list seek_next routine.");
 		return ijmlist_lnk_seek_next(jml,handle_ptr,ptr);
-	}
-#ifdef WITH_ASSOC_LIST
-	else if( jml->flags & JMLIST_ASSOCIATIVE )
+	} else if( jml->flags & JMLIST_ASSOCIATIVE )
 	{
 		jmlist_debug(__func__,"passing control to the associative list seek_next routine.");
 		return ijmlist_ass_seek_next(jml,handle_ptr,ptr);
 	}
-#endif
 	
 	jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
 	jmlist_debug(__func__,"returning with failure.");
@@ -3121,7 +3073,6 @@ ijmlist_lnk_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
 	return JMLIST_ERROR_SUCCESS;
 }
 
-#ifdef WITH_ASSOC_LIST
 jmlist_status
 ijmlist_ass_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
 {
@@ -3168,7 +3119,6 @@ ijmlist_ass_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr)
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;
 }
-#endif
 
 /*
    jmlist_find

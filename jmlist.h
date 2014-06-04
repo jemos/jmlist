@@ -128,7 +128,6 @@ typedef struct _linked_entry
 
 typedef void* jmlist_key;
 typedef uint32_t jmlist_key_length;
-#ifdef WITH_ASSOC_LIST
 
 typedef struct _assoc_entry
 {
@@ -137,7 +136,6 @@ typedef struct _assoc_entry
 		jmlist_key_length key_len;
 		void *ptr;
 } assoc_entry;
-#endif
 
 typedef struct _jmlist
 {
@@ -154,12 +152,10 @@ typedef struct _jmlist
 		linked_entry *phead;
 		jmlist_index usage;
 	} lnk_list;
-#ifdef WITH_ASSOC_LIST
 	struct {
 		assoc_entry *phead;
 		jmlist_index usage;
 	} ass_list;
-#endif
 	char tag[16];
 } *jmlist;
 
@@ -191,9 +187,7 @@ typedef struct _jmlist_memory_info
 typedef union _jmlist_seek_handle {
 	jmlist_index next_idx;
 	linked_entry *next_lnk;
-#ifdef WITH_ASSOC_LIST
 	assoc_entry *next_ass;
-#endif
 } jmlist_seek_handle;
 
 #define DEBUGSTART if(jmlist_cfg.flags & JMLIST_FLAG_DEBUG) {

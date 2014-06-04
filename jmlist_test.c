@@ -500,7 +500,13 @@ int main(int argc,char *argv[])
 		printf("  TEST #10.2 NOT OK\n");
 
 	jmlist_free(jml);
-	
+
+	printf(	"\n  TEST #11 ------------------------------------------------------- \n"
+			"    Test jmlist associative function. This function parses the list and for each\n"
+	 		"    entry it calls the callback function, in this case the callback function defined\n"
+	 		"    in this code only compares ptr with param, if equal returns entry found and\n"
+	 		"    the lookup should finish there.\n\n");
+
 	/* END OF TESTS */
 	status = jmlist_uninitialize();
 	jmlist_test_print_status("jmlist_uninitialize",status);

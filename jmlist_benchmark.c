@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <sys/time.h>
+#include <assert.h>
 
 #include "jmlist.h"
 
@@ -53,13 +54,16 @@ int jmlist_benchmark(int argc,char *argv[])
 	struct timeval tv_s,tv_e;
 	double idx_insert_time = 0.0;
 	double lnk_insert_time = 0.0;
+	double ass_insert_time = 0.0;
 	double idx_access_time = 0.0;
 	double lnk_access_time = 0.0;
+	double ass_access_time = 0.0;
 	unsigned int i;
 	jmlist_index *idx_list;
+	jmlist_status s;
 	
 	/* initialize jmlist engine */
-	struct _jmlist_init_params init_params = { .fdump = stdout, .fdebug = stdout, .fverbose = stdout, .flags = JMLIST_FLAG_DEBUG};
+	struct _jmlist_init_params init_params = { .fdump = stdout, .fdebug = stdout, .fverbose = stdout, .flags = 0};
 	status = jmlist_initialize(&init_params);
 	jmlist_benchmark_print_status("jmlist_initialize",status);
 
@@ -81,7 +85,9 @@ int jmlist_benchmark(int argc,char *argv[])
 	params.flags = JMLIST_INDEXED | JMLIST_IDX_USE_SHIFT;
 	jmlist_create(&jml,&params);
 
-	printf("inserting %u items in the list...\n",INDEXED_SIZE);
+	printf("\n ------------------------------------------- \n");
+	printf(	" Benchmarking jmlist indexed.\n"
+			"    ... inserting %u items in the list...\n",INDEXED_SIZE);
 
 	gettimeofday(&tv_s,0);
 	for( i = 0 ; i < INDEXED_SIZE ; i++ )
@@ -90,11 +96,11 @@ int jmlist_benchmark(int argc,char *argv[])
 	}
 	gettimeofday(&tv_e,0);
 
-	printf("insert finished.\n");
-	idx_insert_time = (double)(tv_e.tv_usec - tv_s.tv_usec);
+	printf("    ... insert finished.\n");
+	idx_insert_time = (double)((tv_e.tv_sec - tv_s.tv_sec) + (tv_e.tv_usec - tv_s.tv_usec)*1e-6);
 	
 	/* apply access time test */
-	printf("accessing to %u random items in the list...\n",INDEXED_SIZE);
+	printf("    ... accessing to %u random items in the list...\n",INDEXED_SIZE);
 	gettimeofday(&tv_s,0);
 	void *ptr;
 	for( i = 0 ; i < INDEXED_SIZE ; i++ )
@@ -102,8 +108,8 @@ int jmlist_benchmark(int argc,char *argv[])
 		jmlist_get_by_index(jml,idx_list[i],&ptr);
 	}
 	gettimeofday(&tv_e,0);
-	printf("access finished.\n");
-	idx_access_time = (double)(tv_e.tv_usec - tv_s.tv_usec);
+	printf("    ... access finished.\n");
+	idx_access_time = (double)((tv_e.tv_sec - tv_s.tv_sec) + (tv_e.tv_usec - tv_s.tv_usec)*1e-6);
 
 	
 	jmlist_free(jml);
@@ -113,7 +119,9 @@ int jmlist_benchmark(int argc,char *argv[])
 	params.flags = JMLIST_LINKED;
 	jmlist_create(&jml,&params);
 
-	printf("inserting %u items in the list...\n",INDEXED_SIZE);
+	printf("\n ------------------------------------------- \n");
+	printf(	" Benchmarking jmlist linked.\n"
+			"    ... inserting %u items in the list...\n",INDEXED_SIZE);
 
 	gettimeofday(&tv_s,0);
 	for( i = 0 ; i < INDEXED_SIZE ; i++ )
@@ -122,29 +130,76 @@ int jmlist_benchmark(int argc,char *argv[])
 	}
 	gettimeofday(&tv_e,0);
 
-	printf("insert finished.\n");
-	lnk_insert_time = (double)(tv_e.tv_usec - tv_s.tv_usec);
+	printf("    ... insert finished.\n");
+	lnk_insert_time = (double)((tv_e.tv_sec - tv_s.tv_sec) + (tv_e.tv_usec - tv_s.tv_usec)*1e-6);
 
 	/* apply access time test */
-	printf("accessing to %u random items in the list...\n",INDEXED_SIZE);
+	printf("    ... accessing to %u random items in the list...\n",INDEXED_SIZE);
 	gettimeofday(&tv_s,0);
 	for( i = 0 ; i < INDEXED_SIZE ; i++ )
 	{
 		jmlist_get_by_index(jml,idx_list[i],&ptr);
 	}
 	gettimeofday(&tv_e,0);
-	printf("access finished.\n");
-	lnk_access_time = (double)(tv_e.tv_usec - tv_s.tv_usec);
+	printf("    ... access finished.\n");
+	lnk_access_time = (double)((tv_e.tv_sec - tv_s.tv_sec) + (tv_e.tv_usec - tv_s.tv_usec)*1e-6);
 	
 	jmlist_free(jml);
 
-	printf(" list type     | insert time (k/s) | access time (k/s) \n");
-	printf(" indexed       | %15.2g | %15.2g \n",
-			INDEXED_SIZE_FLOAT/(idx_insert_time/1000.0),
-			INDEXED_SIZE_FLOAT/(idx_access_time/1000.0) );
-	printf(" linked        | %15.2g | %15.2g \n",
-			INDEXED_SIZE_FLOAT/(lnk_insert_time/1000.0),
-			INDEXED_SIZE_FLOAT/(lnk_access_time/1000.0) );
+	// JMLIST ASSOC
+
+	params.flags = JMLIST_ASSOCIATIVE;
+	s = jmlist_create(&jml,&params);
+	assert(s == JMLIST_ERROR_SUCCESS);
+
+	printf("\n ------------------------------------------- \n");
+	printf(	" Benchmarking jmlist associative.\n"
+			"    ... creating %u keys...\n",INDEXED_SIZE);
+
+	char buffer[64];
+	void **key_list = (void**)malloc(sizeof(void*)*INDEXED_SIZE);
+	for( i = 0 ; i < INDEXED_SIZE ; i++ ) {
+		sprintf(buffer,"key %d",i);
+		key_list[i] = strdup(buffer);
+	}
+	printf("    ... created %u keys.\n",INDEXED_SIZE);
+
+	printf("    ... inserting %u items in the list...\n",INDEXED_SIZE);
+	gettimeofday(&tv_s,0);
+	for( i = 0 ; i < INDEXED_SIZE ; i++ ) {
+		s = jmlist_insert_with_key(jml,key_list[i],strlen(key_list[i]),key_list[i]);
+		assert(s == JMLIST_ERROR_SUCCESS);
+	}
+	gettimeofday(&tv_e,0);
+
+	printf("    ... insert finished.\n");
+	ass_insert_time = (double)((tv_e.tv_sec - tv_s.tv_sec) + (tv_e.tv_usec - tv_s.tv_usec)*1e-6);
+
+	/* apply access time test */
+	printf("    ... accessing to %u random items in the list...\n",INDEXED_SIZE);
+	gettimeofday(&tv_s,0);
+	for( i = 0 ; i < INDEXED_SIZE ; i++ )
+	{
+		s = jmlist_get_by_key(jml,key_list[i],strlen(key_list[i]),&ptr);
+		assert(s == JMLIST_ERROR_SUCCESS);
+		assert(ptr == (void*) key_list[i]);
+	}
+	gettimeofday(&tv_e,0);
+	printf("    ... access finished.\n");
+	ass_access_time = (double)((tv_e.tv_sec - tv_s.tv_sec) + (tv_e.tv_usec - tv_s.tv_usec)*1e-6);
+	
+	jmlist_free(jml);
+
+	printf("\n list type     | insert time (k/s) | access time (k/s)\n");
+	printf(" indexed       | %17.3e | %15.3e \n",
+			INDEXED_SIZE_FLOAT/idx_insert_time*1e-3,
+			INDEXED_SIZE_FLOAT/idx_access_time*1e-3);
+	printf(" linked        | %17.3e | %15.3e \n",
+			INDEXED_SIZE_FLOAT/lnk_insert_time*1e-3,
+			INDEXED_SIZE_FLOAT/lnk_access_time*1e-3);
+	printf(" associative   | %17.3e | %15.3e \n",
+			INDEXED_SIZE_FLOAT/ass_insert_time*1e-3,
+			INDEXED_SIZE_FLOAT/ass_access_time*1e-3);
 
 	jmlist_uninitialize(jml);
 
