@@ -63,8 +63,7 @@ int jmlist_benchmark(int argc,char *argv[])
 	jmlist_status s;
 	
 	/* initialize jmlist engine */
-	struct _jmlist_init_params init_params = { .fdump = stdout, .fdebug = stdout, .fverbose = stdout, .flags = 0};
-	status = jmlist_initialize(&init_params);
+	status = jmlist_set_internal_flags(0);
 	jmlist_benchmark_print_status("jmlist_initialize",status);
 
 	printf("jmlist initialized, benchmarking indexed list...\n");
@@ -201,7 +200,7 @@ int jmlist_benchmark(int argc,char *argv[])
 			INDEXED_SIZE_FLOAT/ass_insert_time*1e-3,
 			INDEXED_SIZE_FLOAT/ass_access_time*1e-3);
 
-	jmlist_uninitialize(jml);
+	jmlist_cleanup();
 
 	return EXIT_SUCCESS;
 }

@@ -80,65 +80,66 @@ jmlist_status ijmlist_ass_replace_by_index(jmlist jml,jmlist_index index,void *n
 jmlist_status ijmlist_ass_seek_start(jmlist jml,jmlist_seek_handle *handle_ptr);
 jmlist_status ijmlist_ass_seek_next(jmlist jml,jmlist_seek_handle *handle_ptr,void **ptr);
 
-unsigned int jmlist_malloc_counter = 0;
-unsigned int jmlist_free_counter = 0;
-jmlist jmlist_ilist = 0;
-struct _jmlist_init_params jmlist_cfg;
-FILE *fnull = 0;
-jmlist_status jmlist_errno = JMLIST_ERROR_SUCCESS;
-struct _jmlist_memory_info jmlist_mem;
+static jmlist jmlist_ilist = 0;
+static struct _jmlist_init_params jmlist_cfg = { .flags = 0 };
+static jmlist_status jmlist_errno = JMLIST_ERROR_SUCCESS;
+static struct _jmlist_memory_info jmlist_mem = {
+	.idx_list.total = 0,
+	.idx_list.used = 0,
+	.lnk_list.total = 0,
+	.lnk_list.used = 0,
+	.ass_list.total = 0,
+	.ass_list.used = 0,
+	.total = 0,
+	.used = 0
+};
 
 /*
-   jmlist_initialize
-
-   initialize jmlist library, in params argument the client
-   passes information about the output channels (for error, debugging
-   and verbose messages) and some flags (check jmlist.h for more
-   information about the flags.
-*/
-jmlist_status
-jmlist_initialize(jmlist_init_params params)
+ * Sets jmlist internal flags at this moment, only internal list flag is available.
+ */
+jmlist_status jmlist_set_internal_flags(jmlist_init_flags flags)
 {
-	/* clear configuration */
-	memset(&jmlist_cfg,0,sizeof(jmlist_cfg));
-	memset(&jmlist_mem,0,sizeof(struct _jmlist_memory_info));
-	
-	if( params->flags & JMLIST_FLAG_DEBUG )
-		jmlist_cfg.flags |= JMLIST_FLAG_DEBUG;
-	
-	if( params->flags & JMLIST_FLAG_VERBOSE )
-		jmlist_cfg.flags |= JMLIST_FLAG_VERBOSE;
-	
-	jmlist_cfg.flags = params->flags;
-	
-	/* if any file descriptor is zero, use /dev/null */
-	fnull = fopen("/dev/null","w");
-	jmlist_cfg.fverbose = params->fverbose ? params->fverbose : fnull;
-	jmlist_cfg.fdebug = params->fdebug ? params->fdebug : fnull;
-	jmlist_cfg.fdump = params->fdump ? params->fdump : stdout;
+	jmlist_cfg.flags = flags;
 
 	/* if internal list is active, create the internal list */
-	if( params->flags & JMLIST_FLAG_INTERNAL_LIST )
+	if( flags & JMLIST_FLAG_INTERNAL_LIST )
 	{
 		struct _jmlist_params tparams;
 		tparams.flags = JMLIST_LINKED | JMLIST_LNK_INTERNAL;
 		if( jmlist_create(&jmlist_ilist,&tparams) == JMLIST_ERROR_FAILURE )
 			return JMLIST_ERROR_FAILURE;
-		
-		jmlist_cfg.flags |= JMLIST_FLAG_INTERNAL_LIST;
-	}	
+	}
 
 	return JMLIST_ERROR_SUCCESS;
 }
 
 /*
-   jmlist_uninitialize
+ * Enables debug flag, if this code is compiled with JMLISTDEBUG will print
+ * to stdout debugging information.
+ */
+jmlist_status jmlist_enable_debug(void)
+{
+	jmlist_cfg.flags |= JMLIST_FLAG_DEBUG;
+	return JMLIST_ERROR_SUCCESS;
+}
 
-   free allocated lists if internal list flag is active, also free the
-   fnull file descriptor if it was used.
+/*
+ * Disables debug flag.
+ */
+jmlist_status jmlist_disable_debug(void)
+{
+	jmlist_cfg.flags &= ~JMLIST_FLAG_DEBUG;
+	return JMLIST_ERROR_SUCCESS;
+}
+
+/*
+   jmlist_cleanup
+
+   Frees allocated lists if internal list flag is active. This function also clears
+   the jmlist internal flags.
 */
 jmlist_status
-jmlist_uninitialize(void)
+jmlist_cleanup(void)
 {
 	/* test for internal list flag, warn if there's any list to be freed */
 	if( jmlist_cfg.flags & JMLIST_FLAG_INTERNAL_LIST )
@@ -149,15 +150,11 @@ jmlist_uninitialize(void)
 		/* free linked list */
 		jmlist_free(jmlist_ilist);
 		jmlist_ilist = 0;
-	}
-
-	/* close fnull if was opened */
-	if( fnull )
-	{
-		fclose(fnull);
-		fnull = 0;
+		
 	}
 	
+	jmlist_ilist = 0;
+	jmlist_cfg.flags = 0;
 	return JMLIST_ERROR_SUCCESS;
 }
 
@@ -234,7 +231,7 @@ ijmlist_idx_set_capacity(jmlist jml,jmlist_index capacity)
 				 jml->idx_list.plist+jml->idx_list.capacity);
 	
 	jmlist_mem.idx_list.total += (capacity*sizeof(void*) - jml->idx_list.capacity*sizeof(void*));
-	jmlist_mem.idx_list.used -= jml->idx_list.usage*sizeof(void*);
+	//jmlist_mem.idx_list.used = jml->idx_list.usage*sizeof(void*);
 	jmlist_debug(__func__,"new jml_mem.idx_list.total is %u",jmlist_mem.idx_list.total);
 	jmlist_debug(__func__,"new jml_mem.idx_list.used is %u",jmlist_mem.idx_list.used);
 
@@ -521,15 +518,15 @@ jmlist_status
 ijmlist_idx_dump(jmlist jml)
 {
 	/* dump list information */
-	fprintf(jmlist_cfg.fdump,"capacity: %u, usage: %u\n",jml->idx_list.capacity,jml->idx_list.usage);
+	printf("capacity: %u, usage: %u\n",jml->idx_list.capacity,jml->idx_list.usage);
 
 	/* if we've any entries in the list, plot their index-value */
 	if( jml->idx_list.usage )
 	{
-		fprintf(jmlist_cfg.fdump,"list of entries: \n");
+		printf("list of entries: \n");
 		jmlist_index i;
 		for( i = 0 ; i < jml->idx_list.capacity ; i++ )
-			fprintf(jmlist_cfg.fdump,"%u %p\n",i,jml->idx_list.plist[i]);
+			printf("%u %p\n",i,jml->idx_list.plist[i]);
 	}
 	
 	return JMLIST_ERROR_SUCCESS;
@@ -540,17 +537,17 @@ ijmlist_lnk_dump(jmlist jml)
 {
 	jmlist_debug(__func__,"called with jml=%p",jml);
 	
-	fprintf(jmlist_cfg.fdump,"linked list jml=%p has usage=%u and phead=%p\n",(void*)jml,jml->lnk_list.usage,(void*)jml->lnk_list.phead);
+	printf("linked list jml=%p has usage=%u and phead=%p\n",(void*)jml,jml->lnk_list.usage,(void*)jml->lnk_list.phead);
 	
 	linked_entry *pseeker = jml->lnk_list.phead;
 	
 	if( pseeker )
-		fprintf(jmlist_cfg.fdump,"list of entries:\n");
+		printf("list of entries:\n");
 	
 	jmlist_index index = 0;
 	while( pseeker )
 	{
-		fprintf(jmlist_cfg.fdump,"  %08X: pentry=%p pentry->next=%p ptr=%p\n",index,(void*)pseeker,(void*)pseeker->next,pseeker->ptr);
+		printf("  %08X: pentry=%p pentry->next=%p ptr=%p\n",index,(void*)pseeker,(void*)pseeker->next,pseeker->ptr);
 		pseeker = pseeker->next;
 		index++;
 	}
@@ -1311,14 +1308,15 @@ void jmlist_debug(const char *func,const char *fmt,...)
 {
 #ifdef JMLDEBUG
 	va_list args;
-	
-	va_start(args,fmt);
-	fprintf(jmlist_cfg.fdebug,"%s: ",func);
-	vfprintf(jmlist_cfg.fdebug,fmt,args);
-	fprintf(jmlist_cfg.fdebug,"\n");
-	va_end(args);
+	if( jmlist_cfg.flags & JMLIST_FLAG_DEBUG ) {
+		va_start(args,fmt);
+		fprintf(stdout,"%s: ",func);
+		vfprintf(stdout,fmt,args);
+		fprintf(stdout,"\n");
+		va_end(args);
+	}
 #else
-	;
+	return;
 #endif
 }
 
@@ -1523,7 +1521,7 @@ jmlist_is_fragmented(jmlist jml,bool force_seeker,bool *fragmented)
 }
 
 jmlist_status
-jmlist_memory(jmlist_memory_info jml_mem)
+jmlist_memory_stats(jmlist_memory_info_ptr jml_mem)
 {
 	jmlist_debug(__func__,"called with jml_mem=%p",jml_mem);
 	
@@ -1819,13 +1817,13 @@ ijmlist_ass_dump(jmlist jml)
 {
 	jmlist_debug(__func__,"called with jml=%p",jml);
 	
-	fprintf(jmlist_cfg.fdump,"associative list jml=%p has usage=%u and phead=%p\n",
+	printf("associative list jml=%p has usage=%u and phead=%p\n",
 			(void*)jml,jml->ass_list.usage,(void*)jml->ass_list.phead);
 	
 	assoc_entry *pseeker = jml->ass_list.phead;
 	
 	if( pseeker )
-		fprintf(jmlist_cfg.fdump,"list of entries:\n");
+		printf("list of entries:\n");
 	
 	jmlist_index index = 0;
 	bool printable_key;
@@ -1845,16 +1843,16 @@ ijmlist_ass_dump(jmlist jml)
 		
 		if( printable_key )
 		{
-			fprintf(jmlist_cfg.fdump,"  %08X: pentry=%p pentry->next=%p key=<",
+			printf("  %08X: pentry=%p pentry->next=%p key=<",
 					index,(void*)pseeker,(void*)pseeker->next);
 
 			for( i = 0 ; i < pseeker->key_len ; i++ )
-				fprintf(jmlist_cfg.fdump,"%c",((char*)pseeker->key_ptr)[i]);
+				printf("%c",((char*)pseeker->key_ptr)[i]);
 
-			fprintf(jmlist_cfg.fdump,"> key_len=%u ptr=%p\n",pseeker->key_len,pseeker->ptr);
+			printf("> key_len=%u ptr=%p\n",pseeker->key_len,pseeker->ptr);
 		} else
 		{
-			fprintf(jmlist_cfg.fdump,"  %08X: pentry=%p pentry->next=%p key=%p key_len=%u ptr=%p\n",
+			printf("  %08X: pentry=%p pentry->next=%p key=%p key_len=%u ptr=%p\n",
 					index,(void*)pseeker,(void*)pseeker->next,(void*)pseeker->key_ptr,pseeker->key_len,pseeker->ptr);
 		}
 		pseeker = pseeker->next;
@@ -2248,6 +2246,14 @@ jmlist_entry_count(jmlist jml,jmlist_index *entry_count)
 	{
 		jmlist_debug(__func__,"updating entry_count to %u",jml->lnk_list.usage);
 		*entry_count = jml->lnk_list.usage;
+	} else if( jml->flags & JMLIST_ASSOCIATIVE )
+	{
+		jmlist_debug(__func__,"updating entry_count to %u",jml->ass_list.usage);
+		*entry_count = jml->ass_list.usage;
+	} else {
+		jmlist_debug(__func__,"unable to determine jmlist type from its flags");
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_INVALID_ARGUMENT;
 	}
 
 	jmlist_debug(__func__,"returning with success.");
@@ -3308,4 +3314,22 @@ jmlist_parse(jmlist jml,JMLISTPARSERCALLBACK callback,void *param)
 
 	jmlist_debug(__func__,"returning with success.");
 	return JMLIST_ERROR_SUCCESS;
+}
+
+/*
+ * jmlist_internal_count
+ *
+ * This function is used to get the number of entries in the internal list.
+ * The internal list contains the list of created jmlist objects. So one can
+ * use it to verify if all the created lists were correctly freed.
+ */
+jmlist_status jmlist_internal_count(jmlist_index *entry_count)
+{
+	if( jmlist_ilist == 0 ) {
+		jmlist_debug(__func__,"internal list is not active, cannot use this function");
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	return jmlist_entry_count(jmlist_ilist,entry_count);
 }

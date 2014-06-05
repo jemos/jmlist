@@ -57,12 +57,14 @@ int main(int argc,char *argv[])
 	jmlist_lookup_result result;
 	char *data[] = { "line 1", "line 2", "line 3" };
 	char buffer[64];
-	
+	jmlist jml;
+	struct _jmlist_params params;
+	memset(&params,0,sizeof(params));
+
 	/* initialize jmlist engine */
-	struct _jmlist_init_params init_params = { .fdump = stdout, .fdebug = stdout, .fverbose = stdout, .flags = JMLIST_FLAG_DEBUG};
-	status = jmlist_initialize(&init_params);
-	jmlist_test_print_status("jmlist_initialize",status);
-	
+	status = jmlist_set_internal_flags(JMLIST_FLAG_DEBUG | JMLIST_FLAG_INTERNAL_LIST);
+	jmlist_test_print_status("jmlist_set_internal_flags",status);
+
 	/*
 	 * test 1: create indexed list without shifts, try to insert and remove some entries
 	 * then dump the list to output.
@@ -72,8 +74,7 @@ int main(int argc,char *argv[])
 			"    create indexed list without shifts, try to insert and remove some\n"
 			"    entries then dump the list to output.\n\n");
 
-	jmlist jml;
-	struct _jmlist_params params = { .flags = JMLIST_INDEXED };
+	params.flags = JMLIST_INDEXED;
 	status = jmlist_create(&jml,&params);
 
 	status = jmlist_insert(jml,data[0]);
@@ -234,8 +235,7 @@ int main(int argc,char *argv[])
 	jmlist_dump(jml);
 
 	jmlist_free(jml);
-	
-	jmlist_uninitialize();
+	jmlist_cleanup();
 
 	/*
 	 * test 6: test the internal list, create various lists and check for memory leaks.
@@ -244,18 +244,17 @@ int main(int argc,char *argv[])
 			"    test the internal list, create various lists and check for\n"
 			"    memory leaks..\n\n");
 
-	struct _jmlist_memory_info jml_mem;
+	jmlist_memory_info jml_mem;
 	
-	jmlist_memory(&jml_mem);	
+	jmlist_memory_stats(&jml_mem);	
 	printf("idx_list.total=%u  idx_list.used=%u\nlnk_list.total=%u  lnk_list.used=%u\nJMLIST TOTAL: %u  USED:%u\n",
 		   jml_mem.idx_list.total, jml_mem.idx_list.used, jml_mem.lnk_list.total, jml_mem.lnk_list.used,
 		   jml_mem.total, jml_mem.used);
 	
-	init_params.flags |= JMLIST_FLAG_INTERNAL_LIST; 
-	status = jmlist_initialize(&init_params);
+	status = jmlist_set_internal_flags(JMLIST_FLAG_INTERNAL_LIST | JMLIST_FLAG_DEBUG);
 	jmlist_test_print_status("jmlist_initialize",status);
 	
-	jmlist_memory(&jml_mem);	
+	jmlist_memory_stats(&jml_mem);	
 	printf("idx_list.total=%u  idx_list.used=%u\nlnk_list.total=%u  lnk_list.used=%u\nJMLIST TOTAL: %u  USED:%u\n",
 		   jml_mem.idx_list.total, jml_mem.idx_list.used, jml_mem.lnk_list.total, jml_mem.lnk_list.used,
 		   jml_mem.total, jml_mem.used);
@@ -268,7 +267,7 @@ int main(int argc,char *argv[])
 		jmlist_create(&jml_list[i],&params);
 	}
 	
-	jmlist_memory(&jml_mem);	
+	jmlist_memory_stats(&jml_mem);	
 	printf("idx_list.total=%u  idx_list.used=%u\nlnk_list.total=%u  lnk_list.used=%u\nJMLIST TOTAL: %u  USED:%u\n",
 		   jml_mem.idx_list.total, jml_mem.idx_list.used, jml_mem.lnk_list.total, jml_mem.lnk_list.used,
 		   jml_mem.total, jml_mem.used);
@@ -277,14 +276,14 @@ int main(int argc,char *argv[])
 	for( int i = 0 ; i < 4 ; i++ )
 		jmlist_free(jml_list[i]);
 
-	jmlist_memory(&jml_mem);	
+	jmlist_memory_stats(&jml_mem);	
 	printf("idx_list.total=%u  idx_list.used=%u\nlnk_list.total=%u  lnk_list.used=%u\nJMLIST TOTAL: %u  USED:%u\n",
 		   jml_mem.idx_list.total, jml_mem.idx_list.used, jml_mem.lnk_list.total, jml_mem.lnk_list.used,
 		   jml_mem.total, jml_mem.used);
 	
 	jmlist_free_all();
 	
-	jmlist_memory(&jml_mem);	
+	jmlist_memory_stats(&jml_mem);	
 	printf("idx_list.total=%u  idx_list.used=%u\nlnk_list.total=%u  lnk_list.used=%u\nJMLIST TOTAL: %u  USED:%u\n",
 		   jml_mem.idx_list.total, jml_mem.idx_list.used, jml_mem.lnk_list.total, jml_mem.lnk_list.used,
 		   jml_mem.total, jml_mem.used);
@@ -501,14 +500,11 @@ int main(int argc,char *argv[])
 
 	jmlist_free(jml);
 
-	printf(	"\n  TEST #11 ------------------------------------------------------- \n"
-			"    Test jmlist associative function. This function parses the list and for each\n"
-	 		"    entry it calls the callback function, in this case the callback function defined\n"
-	 		"    in this code only compares ptr with param, if equal returns entry found and\n"
-	 		"    the lookup should finish there.\n\n");
-
 	/* END OF TESTS */
-	status = jmlist_uninitialize();
+	status = jmlist_memory_stats(&jml_mem);
+	jmlist_test_print_status("jmlist_memory_stats",status);
+	printf("Memory stats: used = %u, total = %u\n",jml_mem.used,jml_mem.total);
+	status = jmlist_cleanup();
 	jmlist_test_print_status("jmlist_uninitialize",status);
 
 	return EXIT_SUCCESS;

@@ -33,7 +33,7 @@
 #define JMLIST_IDXLIST_DEF_MALLOC_INC 64
 #define JMLIST_EMPTY_PTR (void*)(-1)
 
-typedef uint32_t jmlist_index;
+typedef unsigned int jmlist_index;
 typedef void (*JMLISTPARSERCALLBACK) (void *ptr,void *param);
 
 typedef enum _jmlist_status
@@ -54,9 +54,7 @@ typedef enum _jmlist_status
 typedef enum _jmlist_init_flags
 {
 	JMLIST_FLAG_INTERNAL_LIST = 1,
-	JMLIST_FLAG_MEM_COUNTER = 2,
-	JMLIST_FLAG_VERBOSE = 4,
-	JMLIST_FLAG_DEBUG = 8
+	JMLIST_FLAG_DEBUG = 2
 } jmlist_init_flags;
 #define JMLIST_INIT_FLAGS 2
 
@@ -117,7 +115,6 @@ typedef struct _jmlist_params
 
 typedef struct _jmlist_init_params {
 	jmlist_init_flags flags;
-	FILE *fverbose,*fdump,*fdebug;
 } *jmlist_init_params;
 
 typedef struct _linked_entry
@@ -182,7 +179,7 @@ typedef struct _jmlist_memory_info
 	} ass_list;
 	uint32_t total;
 	uint32_t used;
-} *jmlist_memory_info;
+} jmlist_memory_info, *jmlist_memory_info_ptr;
 
 typedef union _jmlist_seek_handle {
 	jmlist_index next_idx;
@@ -210,8 +207,10 @@ typedef union _jmlist_seek_handle {
  first row, get the byte index 1 */
 #endif
 
-jmlist_status jmlist_initialize(jmlist_init_params params);
-jmlist_status jmlist_uninitialize();
+jmlist_status jmlist_set_internal_flags(jmlist_init_flags flags);
+jmlist_status jmlist_enable_debug(void);
+jmlist_status jmlist_disable_debug(void);
+jmlist_status jmlist_cleanup(void);
 jmlist_status jmlist_create(jmlist *new_jml,jmlist_params params);
 jmlist_status jmlist_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status jmlist_get_by_index(jmlist jml,jmlist_index index,void **ptr);
@@ -226,7 +225,7 @@ jmlist_status jmlist_dump_pretty(jmlist jml,JMLISTDUMPCALLBACK callback,int opti
 void jmlist_debug(const char *func,const char *fmt,...);
 jmlist_status jmlist_status_to_string(jmlist_status status,char *output,size_t output_len);
 jmlist_status jmlist_is_fragmented(jmlist jml,bool force_seeker,bool *fragmented);
-jmlist_status jmlist_memory(jmlist_memory_info jml_mem);
+jmlist_status jmlist_memory_stats(jmlist_memory_info_ptr jml_mem);
 jmlist_status jmlist_free_all(void);
 jmlist_status jmlist_parse(jmlist jml,JMLISTPARSERCALLBACK callback,void *param);
 jmlist_status jmlist_find(jmlist jml,JMLISTFINDCALLBACK callback,void *param,jmlist_lookup_result *result,void **ptr);
@@ -236,6 +235,7 @@ jmlist_status jmlist_seek_end(jmlist jml,jmlist_seek_handle *handle_ptr);
 jmlist_status jmlist_entry_count(jmlist jml,jmlist_index *entry_count);
 jmlist_status jmlist_remove_by_index(jmlist jml,jmlist_index index);
 jmlist_status jmlist_replace_by_index(jmlist jml,jmlist_index index,void *new_ptr);
+jmlist_status jmlist_internal_count(jmlist_index *entry_count);
 
 jmlist_status jmlist_insert_with_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *ptr);
 jmlist_status jmlist_get_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void **ptr);
