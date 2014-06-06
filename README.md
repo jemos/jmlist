@@ -65,7 +65,7 @@ USAGE TUTORIAL
 
 Lets start with a simple example of indexed lists. The jmlist module
 has some internal flags that can be used before you start using it. For
-the moment we've the following flags:
+the moment it has the following flags:
  * `JMLIST_FLAG_DEBUG` activates debugging messages (only works if code
  is compiled with `JMLDEBUG`).
  * `JMLIST_FLAG_INTERNAL_LIST` makes jmlist use an internal list of
@@ -75,7 +75,7 @@ the moment we've the following flags:
 > Before starting with code, all `jmlist_*` functions return a status
 > code, which you can look for success with `JMLIST_ERROR_SUCCESS`.
 > If it returns `JMLIST_ERROR_FAILURE`, look for jmlist_errno variable
-> contents, its also a status code but more specific. The function
+> contents, it's also a status code but more specific. The function
 > `jmlist_status_to_string` converts this code into a string.
 
 Let's now show a full example.
@@ -198,14 +198,6 @@ Second example is similar, but the processing function can stop the seeking loop
 	}
 	...
 
-Using Push/Pop Functions
-------------------------
-
-In this example we'll use push/pop functions in a index list. First we create and
-insert the items:
-
-	jmlist 
-	s = jmlist
 
 This ends the examples for this version.
 
