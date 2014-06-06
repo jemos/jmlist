@@ -63,8 +63,7 @@ test code implementation of some functionality (`jmlist_test`).
 USAGE TUTORIAL
 ==============
 
-Lets start with a simple example of indexed lists. The jmlist module
-has some internal flags that can be used before you start using it. For
+The jmlist module has some internal flags that can be used before you start using it. For
 the moment it has the following flags:
  * `JMLIST_FLAG_DEBUG` activates debugging messages (only works if code
  is compiled with `JMLDEBUG`).
