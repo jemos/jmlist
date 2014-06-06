@@ -111,7 +111,7 @@ typedef struct _jmlist_params
 	} lnk_list;
 	char tag[16];
 	jmlist_flags flags;
-} *jmlist_params;
+} jmlist_params, *jmlist_params_ptr;
 
 typedef struct _jmlist_init_params {
 	jmlist_init_flags flags;
@@ -211,7 +211,7 @@ jmlist_status jmlist_set_internal_flags(jmlist_init_flags flags);
 jmlist_status jmlist_enable_debug(void);
 jmlist_status jmlist_disable_debug(void);
 jmlist_status jmlist_cleanup(void);
-jmlist_status jmlist_create(jmlist *new_jml,jmlist_params params);
+jmlist_status jmlist_create(jmlist *new_jml,jmlist_params *params);
 jmlist_status jmlist_ptr_exists(jmlist jml,void *ptr,jmlist_lookup_result *result);
 jmlist_status jmlist_get_by_index(jmlist jml,jmlist_index index,void **ptr);
 jmlist_status jmlist_remove_by_ptr(jmlist jml,void *ptr);

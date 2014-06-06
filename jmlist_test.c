@@ -58,7 +58,7 @@ int main(int argc,char *argv[])
 	char *data[] = { "line 1", "line 2", "line 3" };
 	char buffer[64];
 	jmlist jml;
-	struct _jmlist_params params;
+	jmlist_params params;
 	memset(&params,0,sizeof(params));
 
 	/* initialize jmlist engine */

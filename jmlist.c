@@ -239,7 +239,8 @@ ijmlist_idx_set_capacity(jmlist jml,jmlist_index capacity)
 		jml->idx_list.plist+jml->idx_list.capacity,sizeof(void*)*(capacity-jml->idx_list.capacity));
 
 	void **ptr_seeker = jml->idx_list.plist+jml->idx_list.capacity;
-	for( jmlist_index i = 0 ; i < (capacity-jml->idx_list.capacity) ; i++,ptr_seeker++ ) {
+	jmlist_index i;
+	for( i = 0 ; i < (capacity-jml->idx_list.capacity) ; i++,ptr_seeker++ ) {
 			*ptr_seeker = JMLIST_EMPTY_PTR;
 	}
 	jml->idx_list.capacity = capacity;
@@ -776,7 +777,7 @@ ijmlist_lnk_insert(jmlist jml,void *ptr)
  * added to this internal list.
  */
 jmlist_status
-jmlist_create(jmlist *new_jml,jmlist_params params)
+jmlist_create(jmlist *new_jml,jmlist_params *params)
 {
 	jmlist_debug(__func__,"called with new_jml=%p and params=%p",new_jml,params);
 	
@@ -2343,11 +2344,12 @@ ijmlist_idx_remove_by_index(jmlist jml,jmlist_index index)
 	jmlist_debug(__func__,"entry with index %u removed from list %p, new usage is %u",index,jml,jml->idx_list.usage);
 
 	/* if shift is activated, remove and shift, otherwise just remove */
+	unsigned int i;
 	if( jml->flags & JMLIST_IDX_USE_SHIFT )
 	{
 		jmlist_debug(__func__,"JMLIST_IDX_USE_SHIFT activated, shifting list entries.");
 
-		for( unsigned int i = index ; i < (jml->idx_list.capacity - 1) ; i++ )
+		for( i = index ; i < (jml->idx_list.capacity - 1) ; i++ )
 			jml->idx_list.plist[i] = jml->idx_list.plist[i+1];
 	}
 

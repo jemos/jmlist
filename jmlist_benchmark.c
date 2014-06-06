@@ -69,7 +69,7 @@ int jmlist_benchmark(int argc,char *argv[])
 	printf("jmlist initialized, benchmarking indexed list...\n");
 
 	jmlist jml;
-	struct _jmlist_params params;
+	jmlist_params params;
 	
 	printf("creating random index numbers for access benchmark...\n");
 	idx_list = (jmlist_index*)malloc(INDEXED_SIZE*sizeof(jmlist_index));

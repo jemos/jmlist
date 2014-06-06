@@ -63,51 +63,73 @@ test code implementation of some functionality (`jmlist_test`).
 USAGE TUTORIAL
 ==============
 
-Lets start with a simple example of indexed lists. jmlist must be
-initialized before it can be used, that will allow one to specify
-the debugging output file descriptor, internal list usage or not,
-besides others.
+Lets start with a simple example of indexed lists. The jmlist module
+has some internal flags that can be used before you start using it. For
+the moment we've the following flags:
+ * `JMLIST_FLAG_DEBUG` activates debugging messages (only works if code
+ is compiled with `JMLDEBUG`).
+ * `JMLIST_FLAG_INTERNAL_LIST` makes jmlist use an internal list of
+ allocated `jmlist` objects, it can be used in the end to check if all
+ of them were freed.
 
-Before starting with code, all `jmlist_*` functions return a status
-code, which you can look for success with `JMLIST_ERROR_SUCCESS`.
-If it returns `JMLIST_ERROR_FAILURE`, look for jmlist_errno variable
-contents, its also a status code but more specific.
+> Before starting with code, all `jmlist_*` functions return a status
+> code, which you can look for success with `JMLIST_ERROR_SUCCESS`.
+> If it returns `JMLIST_ERROR_FAILURE`, look for jmlist_errno variable
+> contents, its also a status code but more specific. The function
+> `jmlist_status_to_string` converts this code into a string.
 
-First do the jmlist module initialization:
+Let's now show a full example.
 
-	jmlist_status status;
-	struct _jmlist_init_params init_params = {
-		.fdump = stdout, .fdebug = stdout,
-		.fverbose = stdout, .flags = JMLIST_FLAG_DEBUG
-	};
-	status = jmlist_initialize(&init_params);
+	#include <stdio.h>
+	#include <string.h>
 
-The .fdump file descriptor is used for `jmlist_dump` output. Use If everthing went OK, status should be `JMLIST_ERROR_SUCCESS`. If not you can use jmlist_status_to_string to help output something readable.
+	#define JMLDEBUG 1
+	#include "jmlist.h"
 
-
-	struct _jmlist_params params = { .flags = JMLIST_INDEXED };
-	status = jmlist_create(&jml,&params);
-
-	/* We can now add entries to the list.. */
-	status = jmlist_insert(jml,"ABC");
-	status = jmlist_insert(jml,"DEF");
-	status = jmlist_insert(jml,"GHI\n");
-
-	/* Now lets get the entries and print them.. */
-	jmlist_index max_i;
-	jmlist_get_count(jml,&i);
-
-	for( int jmlist_index i = 0 ; i < max_i < i++ )
+	int main(int argc,char *argv)
 	{
-		char *ptr;
-		jmlist_get_by_index(jml,i,ptr);
-		printf("%s",ptr);
+		jmlist jl;
+		jmlist_params p;
+
+		// Create new associative list
+		p.flags = JMLIST_ASSOCIATIVE;
+		jmlist_create(&jl,&p);
+
+		// Associative lists use jmlist_insert_with_key while others
+		// use jmlist_insert function.
+		char *key = "my_key";
+		char *value = "this is my_key value";
+		jmlist_insert_with_key(jl,key,strlen(key),value);
+
+		// You could use jmlist_get_by_index here also.
+		void *ptr;
+		jmlist_get_by_key(jl,key,strlen(key),&ptr);
+		printf("%s = %s\n",key,(char*)ptr);
+
+		// Outside of bounds access test
+		jmlist_enable_debug();
+		jmlist_status s = jmlist_get_by_index(jl,100,&ptr);
+		jmlist_disable_debug();
+
+		char buffer[128];
+		jmlist_status_to_string(s,buffer,sizeof(buffer));
+		printf("Returned status = %s\n",buffer);
+
+		jmlist_free(jl);
 	}
 
-	/* now clear the list */
-	status = jmlist_free(jml);
+Compile with `gcc -DJMLDEBUG x.c jmlist.c -o x` and expected output is:
 
-This example shows basic usage of jmlist.
+	$ ./x
+	my_key = this is my_key value
+	jmlist_get_by_index: called with jml=0x100100080, index=100
+	jmlist_get_by_index: passing control to the associative list get_by_index routine.
+	ijmlist_ass_get_by_index: called with jml=0x100100080, index=100
+	ijmlist_ass_get_by_index: index 100 is out of bounds with list jml=0x100100080 which has 1 entries
+	ijmlist_ass_get_by_index: returning with failure
+	Returned status = JMLIST_ERROR_FAILURE
+
+This example shows basic usage of jmlist. 
 
 Using Linked Lists
 ------------------
@@ -126,9 +148,8 @@ For example:
 
 	...
 	char *key = "my_key";
-	void *data = ...
+	void *data = "this is my_key value";
 	s = jmlist_insert_with_key(jml,key,strlen(key),data);
-	...
 	s = jmlist_get_by_key(jml,key,strlen(key),&data);
 	...
 
@@ -177,6 +198,14 @@ Second example is similar, but the processing function can stop the seeking loop
 	}
 	...
 
+Using Push/Pop Functions
+------------------------
+
+In this example we'll use push/pop functions in a index list. First we create and
+insert the items:
+
+	jmlist 
+	s = jmlist
 
 This ends the examples for this version.
 
