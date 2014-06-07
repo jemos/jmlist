@@ -239,6 +239,7 @@ jmlist_status jmlist_internal_count(jmlist_index *entry_count);
 
 jmlist_status jmlist_insert_with_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void *ptr);
 jmlist_status jmlist_get_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,void **ptr);
+jmlist_status jmlist_key_exists(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,jmlist_lookup_result *result);
 jmlist_status jmlist_remove_by_key(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len);
 
 /* TODO

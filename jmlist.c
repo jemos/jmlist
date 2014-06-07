@@ -1943,6 +1943,8 @@ ijmlist_ass_key_exists(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,j
 {
 	jmlist_debug(__func__,"called with jml=%p, key_ptr=%p, key_len=%u, result=%p",jml,key_ptr,key_len,result);
 	
+	DCHECKSTART
+
 	if( !result )
 	{
 		jmlist_debug(__func__,"invalid result pointer specified (result=0)");
@@ -1968,6 +1970,8 @@ ijmlist_ass_key_exists(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,j
 		jmlist_debug(__func__,"returning with failure.");
 		return JMLIST_ERROR_FAILURE;
 	}
+
+	DCHECKEND
 	
 	/* trying ptr_exists on an empty list? */
 	if( !jml->ass_list.usage )
@@ -3334,4 +3338,46 @@ jmlist_status jmlist_internal_count(jmlist_index *entry_count)
 	}
 
 	return jmlist_entry_count(jmlist_ilist,entry_count);
+}
+
+jmlist_status jmlist_key_exists(jmlist jml,jmlist_key key_ptr,jmlist_key_length key_len,jmlist_lookup_result *result)
+{
+	jmlist_debug(__func__,"called with jml=%p, key_ptr=%p, key_len=%u, result=%p",jml,key_ptr,key_len,result);
+	
+	if( !result )
+	{
+		jmlist_debug(__func__,"invalid result pointer specified (result=0)");
+		jmlist_debug(__func__,"returning with failure.");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* verify key_ptr */
+	if( !key_ptr )
+	{
+		jmlist_debug(__func__,"invalid key_ptr specified (key_ptr=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+	
+	/* verify key_len */
+	if( !key_len )
+	{
+		jmlist_debug(__func__,"invalid key_len specified (key_len=0)");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		jmlist_debug(__func__,"returning with failure.");
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	/* for now this function is only supported in associative lists */	
+	if( jml->flags != JMLIST_ASSOCIATIVE )
+	{
+		jmlist_debug(__func__,"invalid or unsupported list type (jml=%p, flags=%u)",jml,jml->flags);
+		jmlist_debug(__func__,"returning with failure.");
+		jmlist_errno = JMLIST_ERROR_INVALID_ARGUMENT;
+		return JMLIST_ERROR_FAILURE;
+	}
+
+	return ijmlist_ass_key_exists(jml,key_ptr,key_len,result);
 }
