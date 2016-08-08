@@ -7,8 +7,6 @@ INTRODUCTION
 
 Tired of using/creating/modifying my code on different projects to
 use dynamic lists I decided to create this code for future reuse.
-This is something well implemented in most of higher level languages,
-although I didn't found many code of C implementations.
 
 The objective was to abstract most of the structure behind the
 dynamic list while allowing to implement basic list types (indexed,
